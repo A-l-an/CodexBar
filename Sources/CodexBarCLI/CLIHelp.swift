@@ -120,6 +120,7 @@ extension CodexBarCLI {
                        [--provider \(ProviderHelp.list)]
                        [--no-color] [--pretty] [--refresh] [--breakdown] [--provider-native-only]
                        [--days <days>] [--group-by project|session]
+                       [--remote <target> | --summary-only]
 
         Description:
           Print local token cost usage from Claude/Codex native logs plus supported pi and OMP sessions.
@@ -128,9 +129,16 @@ extension CodexBarCLI {
           Use --refresh to bypass cached scan results.
           Use --breakdown with Claude text output to show daily and model details.
           Experimental: use --provider-native-only to exclude pi and OMP session mirrors.
+          With --provider codex, --remote reads separate local and single-host SSH reports once.
+          Both hosts need a CLI supporting --summary-only; SSH must be trusted and non-interactive.
+          --summary-only emits only this machine's summary and requires JSON output.
+          Both new modes use native history only and reject --group-by and --breakdown.
+          Reports are not added together; this does not change menu bar totals.
 
         Examples:
           codexbar cost
+          codexbar cost --provider codex --remote research-server --days 7
+          codexbar cost --provider codex --summary-only --json
           codexbar cost --provider codex --group-by project
           codexbar cost --provider codex --group-by session
           codexbar cost --provider claude --format json --pretty
@@ -467,6 +475,7 @@ extension CodexBarCLI {
                        [--provider \(ProviderHelp.list)] [--no-color] [--pretty] [--refresh] [--breakdown]
                        [--provider-native-only]
                        [--days <days>] [--group-by project|session]
+                       [--remote <target> | --summary-only]
           codexbar sessions [--json|--json-v2] [--pretty]
           codexbar sessions focus <id>
           codexbar dashboard [--pretty] [--timeout <seconds>] [--output <path>]

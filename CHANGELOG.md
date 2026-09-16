@@ -2,6 +2,9 @@
 
 ## 0.60.4 — Unreleased
 
+### Added
+- CLI: query one SSH host's native Codex token and API-equivalent cost estimates with `cost --provider codex --remote <host>`, using bounded summary-only responses and separate local/remote reports that retain successful results when another source fails.
+
 ### Fixed
 - Settings: stop repeatedly closing retained placeholder windows while still dismissing them if macOS presents them again (#3674, related to #3671). Thanks @harjothkhara!
 - DeepSeek: retain Chrome-only balances through transport failures only for the same live browser session, preserving timestamps and retry diagnostics without reusing another profile's balance (related to #3500). Thanks @jaxleezhang!
