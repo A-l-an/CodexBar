@@ -70,7 +70,7 @@ public enum CodexRemoteLogError: Error, LocalizedError, Sendable, Equatable {
         case .remoteUnavailable: "The SSH log source could not be read. Check connectivity and noninteractive access."
         case .invalidManifest: "The server log manifest was incomplete or invalid."
         case .inaccessibleRoot: "A server log directory exists but cannot be read."
-        case .unsafePath: "The server log tree contains an unsupported path or file type."
+        case .unsafePath: "The log transfer contains an unsupported path, file type, or received file permissions."
         case .budgetExceeded: "The server logs exceed the collection resource limit."
         case .unstableSource: "Server logs changed during collection. Retry when the logs are stable."
         case .transferFailed: "The server log transfer did not complete."

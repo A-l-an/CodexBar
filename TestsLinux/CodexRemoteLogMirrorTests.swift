@@ -237,6 +237,29 @@ struct CodexRemoteLogMirrorTests {
         try fixture.expectClean()
     }
 
+    @Test func `partial transfer cannot publish and deletes all staged files`() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let mirror = CodexRemoteLogMirror(
+            environment: [:],
+            temporaryRoot: fixture.temporary,
+            limits: .init())
+        { command in
+            if command.kind == .manifest { return fixture.manifest }
+            let staging = try URL(fileURLWithPath: #require(command.arguments.last))
+            let target = staging.appendingPathComponent("sessions/a.jsonl")
+            try CodexRemoteLogStorage.privateFile(fixture.bytes.prefix(3), at: target)
+            #expect(try CodexRemoteLogStorage.attributes(target).st_mode & 0o777 == 0o600)
+            return ""
+        }
+        await #expect(throws: CodexRemoteLogError.transferFailed) {
+            try await mirror.withMirror(source: .init(host: "Fixture")) { _ in
+                Issue.record("An incomplete staging tree reached the consumer")
+            }
+        }
+        try fixture.expectClean()
+    }
+
     @Test func `unterminated last JSONL record is rejected`() throws {
         let fixture = try Fixture()
         defer { fixture.clean() }

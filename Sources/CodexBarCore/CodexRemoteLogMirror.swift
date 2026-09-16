@@ -209,8 +209,10 @@ public struct CodexRemoteLogMirror: Sendable {
     {
         // Fixed argv is safe at rsync's second shell boundary. In particular, no -n: rsync needs SSH stdin.
         let remoteShell = (["/usr/bin/ssh"] + self.effectiveSSHArguments).joined(separator: " ")
+        // Explicitly remove group/other bits: macOS openrsync does not clear them for empty
+        // assignments such as Dgo= or Fgo=. Keep receiving files private, including temporary files.
         let arguments = [
-            "--relative", "--no-implied-dirs", "--perms", "--chmod=Du=rwx,Dgo=,Fu=rw,Fgo=",
+            "--relative", "--no-implied-dirs", "--perms", "--chmod=Du=rwx,Dgo-rwx,Fu=rw,Fgo-rwx",
             "-0", "--files-from=" + list.path, "--max-size=\(self.limits.fileBytes)",
             "--bwlimit=4096", "--timeout=15", "-e", remoteShell,
             "--", source.host + ":" + home + "/", staging.path + "/",
