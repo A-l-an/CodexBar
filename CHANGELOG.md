@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Codex: manually refresh one SSH server into the native cost card and history chart, using temporary log copies, a unified native scan, verified copy/prefix deduplication, and explicit local fallback when histories cannot be safely combined.
+
 ## 0.60.4 — 2026-09-16
 
 ### Highlights
@@ -7,9 +12,6 @@
 - **More accurate cost estimates:** avoid duplicate Claude proxy usage and price OpenCodex records using their recorded provider, keeping unknown costs distinct from zero.
 - **Clearer allowance bars:** restore Amp Agent and Orb usage and keep Grok weekly pacing visible near reset.
 - **Consistent web dashboard bars:** follow the app's used/remaining preference and default to remaining quota when no preference is saved.
-
-### Added
-- CLI: query one SSH host's native Codex token and API-equivalent cost estimates with `cost --provider codex --remote <host>`, using bounded summary-only responses and separate local/remote reports that retain successful results when another source fails.
 
 ### Fixed
 - Amp: restore Agent and Orb usage for the current Tier format, keep monthly allowances separate from credits, and use reported billing dates for pacing (#3668). Thanks @jdblackstar!

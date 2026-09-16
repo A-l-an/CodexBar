@@ -202,12 +202,10 @@ is limited, using additional rows when needed.
 
 ## Cost usage (local log scan)
 
-For a one-shot CLI query of this machine and one SSH host, use
-`codexbar cost --provider codex --remote research-server --days 7`. Both hosts need a CLI supporting
-`--summary-only`; see [SSH Codex cost reports](cli.md#ssh-codex-cost-reports) for installation prerequisites,
-output, and failure behavior. Reports contain native Codex token/API-equivalent estimates, keep each host's
-time zone and pricing context, and exclude pi/OMP mirrors. This CLI feature does not add the remote amount to
-the menu bar, combine or deduplicate histories, or change account-wide quota bars.
+The native app can explicitly refresh one SSH server's native Codex history into the existing cost card and daily
+history chart. This opt-in view uses a single scan and verified overlap handling, rather than summing two cost
+reports. See [Manual SSH cost statistics](codex-ssh-costs.md) for setup, temporary-log privacy, supported log shapes,
+resource limits, and local fallback. It does not alter account quota bars or managed-account cost rows.
 
 - Menu source selection:
   - By default, a selected managed account keeps its own `CODEX_HOME` session history.

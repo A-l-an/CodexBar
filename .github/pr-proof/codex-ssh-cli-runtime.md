@@ -1,5 +1,7 @@
 # SSH Codex cost CLI: captured runtime evidence
 
+> Historical v1 evidence. The integrated native UI revision replaces these unmerged CLI flags and summary transport. These earlier captures do not validate the v2 raw-log collection, combined accounting, or native interface.
+
 Tested implementation: [`761afe3b9fa21f5abe2c7bb01a90faf8f1779656`](https://github.com/steipete/CodexBar/commit/761afe3b9fa21f5abe2c7bb01a90faf8f1779656).
 Capture date: 2026-09-16 UTC. This evidence-only follow-up preserves the tested source and tests.
 

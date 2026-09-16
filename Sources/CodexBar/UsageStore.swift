@@ -21,6 +21,12 @@ extension UsageStore {
         _ = self.claudeSwapLastError
         _ = self.claudeSwapRevision
         _ = self.tokenSnapshotPublications
+        _ = self.codexRemoteCosts.result
+        _ = self.codexRemoteCosts.enabled
+        _ = self.codexRemoteCosts.host
+        _ = self.codexRemoteCosts.home
+        _ = self.codexRemoteCosts.errorMessage
+        _ = self.codexRemoteCosts.phase
         _ = self.tokenErrors
         _ = self.tokenRefreshInFlight
         _ = self.codexCostCatchUpActivity
@@ -322,6 +328,10 @@ final class UsageStore {
 
     @ObservationIgnored let codexFetcher: UsageFetcher
     @ObservationIgnored let claudeFetcher: any ClaudeUsageFetching
+    let codexRemoteCosts: CodexRemoteCostStore
+    @ObservationIgnored let codexRemotePricingCacheRoot: URL?
+    @ObservationIgnored let codexRemoteLocalCostCacheRoot: URL?
+    @ObservationIgnored let accountInfoOverride: AccountInfo?
     @ObservationIgnored let costUsageFetcher: CostUsageFetcher
     @ObservationIgnored let browserDetection: BrowserDetection
     @ObservationIgnored private let registry: ProviderRegistry
@@ -480,6 +490,10 @@ final class UsageStore {
         browserDetection: BrowserDetection,
         claudeFetcher: (any ClaudeUsageFetching)? = nil,
         costUsageFetcher: CostUsageFetcher = CostUsageFetcher(),
+        codexRemoteCostStore: CodexRemoteCostStore? = nil,
+        codexRemotePricingCacheRoot: URL? = nil,
+        codexRemoteLocalCostCacheRoot: URL? = nil,
+        accountInfoOverride: AccountInfo? = nil,
         settings: SettingsStore,
         registry: ProviderRegistry = .shared,
         historicalUsageHistoryStore: HistoricalUsageHistoryStore = HistoricalUsageHistoryStore(),
@@ -497,6 +511,15 @@ final class UsageStore {
         self.browserDetection = browserDetection
         self.claudeFetcher = claudeFetcher ?? ClaudeUsageFetcher(browserDetection: browserDetection)
         self.costUsageFetcher = costUsageFetcher
+        self.codexRemotePricingCacheRoot = codexRemotePricingCacheRoot
+        self.codexRemoteLocalCostCacheRoot = codexRemoteLocalCostCacheRoot
+        self.accountInfoOverride = accountInfoOverride
+        let remoteFetcher = CodexCombinedCostFetcher(environment: environmentBase)
+        let remoteMirror = CodexRemoteLogMirror(environment: environmentBase)
+        self.codexRemoteCosts = codexRemoteCostStore ?? CodexRemoteCostStore(
+            defaults: settings.userDefaults,
+            loader: { request, progress in try await remoteFetcher.load(request, progress: progress) },
+            cleanup: { try await remoteMirror.cleanupAbandonedRequests() })
         self.settings = settings
         self.registry = registry
         self.environmentBase = environmentBase
@@ -544,6 +567,7 @@ final class UsageStore {
         }
         self.logStartupState()
         self.bindSettings()
+        self.observeCodexRemoteCostContext()
         self.pathDebugInfo = PathDebugSnapshot(
             codexBinary: nil,
             claudeBinary: nil,
@@ -551,6 +575,8 @@ final class UsageStore {
             effectivePATH: PathBuilder.effectivePATH(purposes: [.rpc, .tty, .nodeTooling]),
             loginShellPATH: LoginShellPathCache.shared.current?.joined(separator: ":"))
         guard self.startupBehavior.automaticallyStartsBackgroundWork else { return }
+        // Local cleanup only; startup never invokes the SSH cost loader.
+        Task { await self.codexRemoteCosts.retryCleanup() }
         self.hydrateCachedTokenSnapshots()
         self.startSharedSpendDashboardPublication()
         self.detectVersions()
