@@ -158,18 +158,45 @@ struct CodexCombinedCostTests {
             cacheRoot: fixture.localCache,
             codexTraceDatabaseURL: fixture.root.appendingPathComponent("absent.sqlite"),
             calendar: fixture.calendar)
-        _ = CostUsageScanner.loadDailyReport(
+        let report = CostUsageScanner.loadDailyReport(
             provider: .codex, since: fixture.now, until: fixture.now, now: fixture.now, options: options)
+        try #require(report.summary?.totalTokens == 110)
         let url = fixture.localCache.appendingPathComponent("cost-usage/cost-usage.sqlite")
-        var opened: OpaquePointer?
-        #expect(sqlite3_open(url.path, &opened) == SQLITE_OK)
-        let database = try #require(opened)
-        #expect(sqlite3_exec(database, "UPDATE file_day_aggregates SET priority_tokens = 110", nil, nil, nil) ==
-            SQLITE_OK)
-        sqlite3_close(database)
+        let priorityTokens: Int64 = try {
+            var opened: OpaquePointer?
+            let result = sqlite3_open_v2(url.path, &opened, SQLITE_OPEN_READWRITE, nil)
+            defer { if let opened { sqlite3_close(opened) } }
+            try #require(result == SQLITE_OK)
+            let database = try #require(opened)
+            // Scanner teardown may still briefly own the WAL lock. Match the existing SQLite test helper's bound.
+            try #require(sqlite3_busy_timeout(database, 5000) == SQLITE_OK)
+            try #require(sqlite3_exec(
+                database,
+                "UPDATE file_day_aggregates SET priority_tokens = 110",
+                nil,
+                nil,
+                nil) ==
+                SQLITE_OK)
+            try #require(sqlite3_changes(database) == 1)
+            var prepared: OpaquePointer?
+            let prepare = sqlite3_prepare_v2(
+                database, "SELECT SUM(priority_tokens) FROM file_day_aggregates", -1, &prepared, nil)
+            defer { sqlite3_finalize(prepared) }
+            try #require(prepare == SQLITE_OK)
+            let statement = try #require(prepared)
+            try #require(sqlite3_step(statement) == SQLITE_ROW)
+            let tokens = sqlite3_column_int64(statement, 0)
+            try #require(tokens == 110)
+            try #require(sqlite3_step(statement) == SQLITE_DONE)
+            // Materialize setup writes before taking the read-only coverage check's byte-for-byte baseline.
+            try #require(sqlite3_wal_checkpoint_v2(database, nil, SQLITE_CHECKPOINT_TRUNCATE, nil, nil) == SQLITE_OK)
+            return tokens
+        }()
         let before = try Data(contentsOf: url)
-        #expect(throws: CodexCombinedCostError.pricingEvidence) { try fixture.scan() }
-        #expect(try Data(contentsOf: url) == before)
+        try #require(throws: CodexCombinedCostError.pricingEvidence) { try fixture.scan() }
+        try #require(try Data(contentsOf: url) == before)
+        print(
+            "retained priority fixture: baseline=110 priority=\(priorityTokens) fallback=pricingEvidence DB unchanged")
     }
 
     @Test

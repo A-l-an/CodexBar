@@ -326,6 +326,9 @@ struct CodexRemoteCostStoreTests {
         store.installCachedTokenSnapshot(
             local,
             for: .codex)
+        let historyTokensTitle = "\(UsageMenuCardView.Model.costHistoryWindowLabel(days: 7)) \(L("tokens"))"
+        let localKPIs = try #require(store.menuCardModel(for: .codex).inlineUsageDashboard?.kpis)
+        #expect(localKPIs.suffix(2).map(\.title) == [L("Latest tokens"), historyTokensTitle])
         remote.grantConsent()
         let context = store.codexRemoteCostContext()
         remote.refresh(context: context) { context }
@@ -339,6 +342,11 @@ struct CodexRemoteCostStoreTests {
         #expect(model.tokenUsage?.errorLine == nil)
         #expect(model.tokenUsage?.sessionLine.contains("550") == true)
         #expect(model.inlineUsageDashboard?.detailLines.contains(where: { $0.contains("Native Codex") }) == true)
+        let combinedKPIs = try #require(model.inlineUsageDashboard?.kpis)
+        #expect(combinedKPIs.map(\.title) == [
+            L("Today"), UsageMenuCardView.Model.costHistoryWindowLabel(days: 7), L("Today tokens"), historyTokensTitle,
+        ])
+        #expect(combinedKPIs.suffix(2).map(\.value) == ["550", "715"])
         let accountModel = store.menuCardModel(
             for: .codex,
             context: .account(.init(info: AccountInfo(
@@ -371,6 +379,8 @@ struct CodexRemoteCostStoreTests {
         remote.enabled = true
         #expect(store.codexRemoteCostPresentation()?.title == "Only this Mac")
         #expect(store.codexRemoteCostPresentation()?.detail.contains("Native Codex logs") == false)
+        await remote.cancel()
+        #expect(store.codexRemoteCostPresentation()?.status == "Server refresh cancelled. Only this Mac is shown.")
         store.clearTokenSnapshot(for: .codex)
         #expect(store.menuCardModel(for: .codex).tokenUsage?.sessionLine.contains("unavailable") == true)
         #expect(store.codexRemoteCostPresentation()?.status.contains("no zero amount") == true)

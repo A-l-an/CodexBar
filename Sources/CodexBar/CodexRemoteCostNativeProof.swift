@@ -6,14 +6,44 @@ import SwiftUI
 /// Enters before normal app construction. The supplied directory contains only synthetic test data.
 @MainActor
 enum CodexRemoteCostNativeProof {
+    enum LaunchDisposition: Equatable {
+        case normalApplication
+        case rejectedProof
+        case proof(root: String)
+    }
+
+    /// Proof-only task bundles must never fall through to normal startup when a launcher drops arguments or env.
+    static func launchDisposition(
+        arguments: [String],
+        proofOnlyBundle: Bool,
+        root: String?,
+        configuredHome: String?,
+        homeDirectory: String) -> LaunchDisposition
+    {
+        guard proofOnlyBundle || arguments.contains("--codex-remote-cost-proof") else { return .normalApplication }
+        guard let root, root.hasPrefix("/"), configuredHome == root + "/home",
+              homeDirectory == root + "/home"
+        else { return .rejectedProof }
+        return .proof(root: root)
+    }
+
     static func runIfRequested() -> Bool {
-        guard CommandLine.arguments.contains("--codex-remote-cost-proof") else { return false }
         let environment = ProcessInfo.processInfo.environment
-        guard let path = environment["CODEXBAR_REMOTE_COST_PROOF_ROOT"], path.hasPrefix("/"),
-              FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path == path + "/home"
-        else {
+        let disposition = self.launchDisposition(
+            arguments: CommandLine.arguments,
+            proofOnlyBundle: Bundle.main.object(forInfoDictionaryKey: "CodexSyntheticProofOnly") as? Bool == true,
+            root: environment["CODEXBAR_REMOTE_COST_PROOF_ROOT"],
+            configuredHome: environment["CFFIXED_USER_HOME"],
+            homeDirectory: FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path)
+        let path: String
+        switch disposition {
+        case .normalApplication:
+            return false
+        case .rejectedProof:
             fputs("Proof requires an absolute fixture root and CFFIXED_USER_HOME=<root>/home.\n", stderr)
             return true
+        case let .proof(root):
+            path = root
         }
         CodexBarLocalizationOverride.setPersistentProofLanguage("en")
         configureUsageFormatterLocalizationProvider()

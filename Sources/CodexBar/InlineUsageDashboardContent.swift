@@ -101,8 +101,9 @@ extension UsageMenuCardView.Model {
             model.detailLineLimit = nil
             if presentation.isCombined, let tokens = input.tokenSnapshot?.sessionTokens {
                 model.kpis.removeAll { $0.title == L("Latest tokens") }
-                model.kpis.append(.init(
-                    title: L("Today tokens"), value: UsageFormatter.tokenCountString(tokens), emphasis: false))
+                model.kpis.insert(
+                    .init(title: L("Today tokens"), value: UsageFormatter.tokenCountString(tokens), emphasis: false),
+                    at: 2)
             }
             model.accessibilityLabel += ". " + presentation.lines.joined(separator: ". ")
         }

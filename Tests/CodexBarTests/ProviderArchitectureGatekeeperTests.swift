@@ -1719,7 +1719,7 @@ struct ProviderArchitectureGatekeeperTests {
     private static let allowedProviderConstructs: [AllowedProviderConstruct] = [
         AllowedProviderConstruct(
             path: "Sources/CodexBar/CodexRemoteCostNativeProof.swift",
-            line: 68,
+            line: 98,
             anchor: "enabled: $0 == .codex)",
             expectedProviderIDs: ["codex"],
             expectedReferenceCount: 1,
@@ -1727,7 +1727,7 @@ struct ProviderArchitectureGatekeeperTests {
             reason: "This isolated native-log proof enables only its synthetic Codex provider configuration."),
         AllowedProviderConstruct(
             path: "Sources/CodexBar/CodexRemoteCostNativeProof.swift",
-            line: 158,
+            line: 188,
             anchor: "provider: .codex,",
             expectedProviderIDs: ["codex"],
             expectedReferenceCount: 2,
@@ -1735,7 +1735,7 @@ struct ProviderArchitectureGatekeeperTests {
             reason: "This isolated proof loads and installs the Codex-native baseline through the production scanner."),
         AllowedProviderConstruct(
             path: "Sources/CodexBar/CodexRemoteCostNativeProof.swift",
-            line: 276,
+            line: 306,
             anchor: "model: self.store.menuCardModel(for: .codex),",
             expectedProviderIDs: ["codex"],
             expectedReferenceCount: 2,
@@ -1911,7 +1911,7 @@ struct ProviderArchitectureGatekeeperTests {
             reason: "This exact shared renderer maps provider-owned presentation data into the generic UI model."),
         AllowedProviderConstruct(
             path: "Sources/CodexBar/InlineUsageDashboardContent.swift",
-            line: 289,
+            line: 290,
             anchor: "if provider == .cursor, let meteredCostUSD = snapshot.meteredCostUSD {",
             expectedProviderIDs: ["cursor"],
             expectedReferenceCount: 1,

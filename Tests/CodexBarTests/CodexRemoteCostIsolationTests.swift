@@ -43,6 +43,46 @@ struct CodexRemoteCostIsolationTests {
     }
 
     @Test
+    func `proof only metadata rejects argumentless relaunch without isolated environment`() {
+        #expect(CodexRemoteCostNativeProof.launchDisposition(
+            arguments: ["CodexBar"],
+            proofOnlyBundle: true,
+            root: nil,
+            configuredHome: nil,
+            homeDirectory: "/synthetic/ordinary-home") == .rejectedProof)
+        #expect(CodexRemoteCostNativeProof.launchDisposition(
+            arguments: ["CodexBar"],
+            proofOnlyBundle: true,
+            root: "/synthetic/proof",
+            configuredHome: "/synthetic/proof/home",
+            homeDirectory: "/synthetic/ordinary-home") == .rejectedProof)
+        #expect(CodexRemoteCostNativeProof.launchDisposition(
+            arguments: ["CodexBar"],
+            proofOnlyBundle: true,
+            root: "/synthetic/proof",
+            configuredHome: "/synthetic/proof/home",
+            homeDirectory: "/synthetic/proof/home") == .proof(root: "/synthetic/proof"))
+        #expect(CodexRemoteCostNativeProof.launchDisposition(
+            arguments: ["CodexBar"],
+            proofOnlyBundle: true,
+            root: "/synthetic/proof",
+            configuredHome: nil,
+            homeDirectory: "/synthetic/proof/home") == .rejectedProof)
+        #expect(CodexRemoteCostNativeProof.launchDisposition(
+            arguments: ["CodexBar", "--codex-remote-cost-proof"],
+            proofOnlyBundle: false,
+            root: nil,
+            configuredHome: nil,
+            homeDirectory: "/synthetic/ordinary-home") == .rejectedProof)
+        #expect(CodexRemoteCostNativeProof.launchDisposition(
+            arguments: ["CodexBar"],
+            proofOnlyBundle: false,
+            root: nil,
+            configuredHome: nil,
+            homeDirectory: "/synthetic/ordinary-home") == .normalApplication)
+    }
+
+    @Test
     func `proof localization bypasses defaults in later callbacks without task local inheritance`() async {
         let previous = CodexBarLocalizationOverride.setPersistentProofLanguage(nil)
         defer { CodexBarLocalizationOverride.setPersistentProofLanguage(previous) }

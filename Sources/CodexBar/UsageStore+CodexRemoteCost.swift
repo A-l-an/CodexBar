@@ -78,7 +78,7 @@ extension UsageStore {
         }
         var status: String
         if let error = state.errorMessage {
-            status = "Server refresh failed. \(error)"
+            status = error
         } else if state.isRunning {
             switch state.phase {
             case .fetching: status = "Fetching server logs…"
