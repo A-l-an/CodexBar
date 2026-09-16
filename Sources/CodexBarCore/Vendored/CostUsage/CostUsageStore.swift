@@ -80,6 +80,7 @@ actor CostUsageStore {
         parserHash: CodexParserHash.value)
     static let cacheGeneration = "sqlite:\(CostUsageStore.schemaVersion)"
     static let compatiblePredecessorParserHashes: Set<String> = [
+        "710f475c3d1cfb61", // Unified-scan options and pricing injection preserve existing rows and checkpoints.
         "aa57b010b3c0bee4", // Provider-aware pricing preserves native rows and scan checkpoints.
         "aef0df6c73f8052c", // 0.60.1 rows and checkpoints survive routine rescan repairs.
         "4969a789db679c93", // 0.58.0 native rows, checkpoints, and reports survive queue reordering.
@@ -149,6 +150,7 @@ actor CostUsageStore {
     private let expectedSchemaVersion: Int32
     private let expectedParserHash: String
     private let busyTimeoutMilliseconds: Int32
+    private let privateFiles: Bool
     private var connection: SQLiteConnection?
     var requiresReadReopen = false
     private var failureGeneration = UUID()
@@ -168,7 +170,8 @@ actor CostUsageStore {
         cacheRoot: URL? = nil,
         schemaVersion: Int32 = CostUsageStore.schemaVersion,
         parserHash: String = CodexParserHash.value,
-        busyTimeoutMilliseconds: Int32 = 5000)
+        busyTimeoutMilliseconds: Int32 = 5000,
+        privateFiles: Bool = false)
     {
         let root = cacheRoot ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
             .appendingPathComponent("CodexBar", isDirectory: true)
@@ -178,6 +181,7 @@ actor CostUsageStore {
         self.expectedSchemaVersion = schemaVersion
         self.expectedParserHash = parserHash
         self.busyTimeoutMilliseconds = busyTimeoutMilliseconds
+        self.privateFiles = privateFiles
     }
 
     static func combinedSchemaVersion(base: Int, parserHash: String) -> Int32 {
@@ -551,8 +555,16 @@ extension CostUsageStore {
 
     private func openDatabase() throws -> OpaquePointer {
         let directory = self.databaseURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: self.privateFiles ? [.posixPermissions: 0o700] : nil)
         let existed = FileManager.default.fileExists(atPath: self.databaseURL.path)
+        if self.privateFiles, !existed {
+            guard FileManager.default.createFile(
+                atPath: self.databaseURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
+            else { throw StoreError.sqlite(SQLITE_CANTOPEN) }
+        }
         var opened: OpaquePointer?
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         let result = sqlite3_open_v2(self.databaseURL.path, &opened, flags, nil)
@@ -564,6 +576,7 @@ extension CostUsageStore {
         }
         do {
             try Self.configure(opened, busyTimeoutMilliseconds: self.busyTimeoutMilliseconds)
+            if self.privateFiles { try Self.execute(opened, "PRAGMA temp_store=MEMORY") }
             if existed {
                 try self.validateExistingDatabase(opened)
             } else {

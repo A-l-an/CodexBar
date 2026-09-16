@@ -10,7 +10,6 @@ extension CodexBarCLI {
         let output = CLIOutputPreferences.from(values: values)
         let config = CodexBarCLI.loadConfig(output: output)
         let selection = CodexBarCLI.decodeProvider(from: values, config: config)
-        await Self.runRemoteCostIfRequested(values: values, selection: selection, output: output)
         let providers = Self.costProviders(from: selection)
         let unsupported = selection.asList.filter { !Self.costSupportedProviders.contains($0) }
         if !unsupported.isEmpty {
@@ -778,7 +777,7 @@ extension CodexBarCLI {
             coverage: summary.coverage)
     }
 
-    static func decodeCostHistoryDays(from values: ParsedValues) -> Int {
+    private static func decodeCostHistoryDays(from values: ParsedValues) -> Int {
         guard let raw = values.options["days"]?.last,
               let parsed = Int(raw)
         else { return 30 }
@@ -904,12 +903,6 @@ struct CostOptions: CommanderParsable {
         name: .long("provider-native-only"),
         help: "Experimental: exclude pi and OMP session mirrors from Claude/Codex cost history")
     var providerNativeOnly: Bool = false
-
-    @Option(name: .long("remote"), help: "Read separate native Codex cost reports from this machine and one SSH target")
-    var remote: String?
-
-    @Flag(name: .long("summary-only"), help: "Emit only this machine's native Codex summary (requires JSON)")
-    var summaryOnly: Bool = false
 
     @Option(name: .long("days"), help: "Cost history window in days (1...365)")
     var days: Int?
