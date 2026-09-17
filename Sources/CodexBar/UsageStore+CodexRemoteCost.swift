@@ -1,12 +1,34 @@
 import CodexBarCore
-import CryptoKit
 import Foundation
 import Observation
 
 extension UsageStore {
+    var codexRemoteCostObservationToken: Int {
+        _ = self.codexRemoteCosts.result
+        _ = self.codexRemoteCosts.enabled
+        _ = self.codexRemoteCosts.host
+        _ = self.codexRemoteCosts.home
+        _ = self.codexRemoteCosts.errorMessage
+        _ = self.codexRemoteCosts.phase
+        _ = self.codexRemoteCosts.isCheckingConfiguration
+        _ = self.codexRemoteContextCache.value
+        _ = self.codexRemoteContextCache.revision
+        return 0
+    }
+
+    /// Remote costs only use ambient history; identifying an unsupported scope must not load its account files.
+    var codexRemoteLocalScope: String {
+        if self.settings.codexLocalSessionCostLedgerEnabled { return "codex:ambient" }
+        switch self.settings.codexActiveSource {
+        case .liveSystem: return "codex:ambient"
+        case let .managedAccount(id): return "codex:managed:\(id.uuidString)"
+        case let .profileHome(path): return "codex:profile:\(path)"
+        }
+    }
+
     func remoteCostPresentationEnabled(for provider: UsageProvider) -> Bool {
         provider == .codex && self.codexRemoteCosts.enabled &&
-            self.tokenCostScope(for: .codex).signature == "codex:ambient"
+            self.codexRemoteLocalScope == "codex:ambient"
     }
 
     func costPresentationShowsInline(for provider: UsageProvider) -> Bool {
@@ -21,64 +43,66 @@ extension UsageStore {
                 .showsCostSubmenu)
     }
 
-    func codexRemoteCostContext(now: Date = Date()) -> CodexRemoteCostContext {
-        let calendar = self.settings.costUsageBucketCalendar
-        let home = CodexHomeScope.ambientHomeURL(env: self.environmentBase).resolvingSymlinksInPath()
-        let pricingRoot = self.codexRemotePricingCacheRoot
-        let defaultPricingRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("CodexBar", isDirectory: true)
-        let catalog = (pricingRoot ?? defaultPricingRoot)
-            .appendingPathComponent("model-pricing/models-dev-v1.json")
-        let custom = pricingRoot?.appendingPathComponent(CostUsageCustomPricing.fileName)
-            ?? CostUsageCustomPricing.defaultFileURL()
-        let revision = [catalog, custom].map { url in
-            (try? Data(contentsOf: url)).map { SHA256.hash(data: $0).description } ?? "absent"
-        }.joined(separator: ":")
-        return CodexRemoteCostContext(
+    func codexRemoteCostContextInput(now: Date = Date()) -> CodexRemoteCostContextInput {
+        CodexRemoteCostContextInput(
             source: self.codexRemoteCosts.source,
-            localCodexHome: home,
-            localScope: self.tokenCostScope(for: .codex).signature,
+            localCodexHome: CodexHomeScope.ambientHomeURL(env: self.environmentBase),
+            localScope: self.codexRemoteLocalScope,
             historyDays: self.settings.costUsageHistoryDays,
-            calendar: calendar,
-            day: calendar.startOfDay(for: now),
-            pricingRevision: revision,
-            sshRevision: CodexRemoteLogMirror.configurationFingerprint(environment: self.environmentBase),
-            pricingCacheRoot: pricingRoot,
+            calendar: self.settings.costUsageBucketCalendar,
+            pricingCacheRoot: self.codexRemotePricingCacheRoot,
             localCostCacheRoot: self.codexRemoteLocalCostCacheRoot,
+            sshEnvironment: self.environmentBase.filter { $0.key == "HOME" || $0.key == "CODEXBAR_SSH_CONFIG_FILE" },
             now: now)
+    }
+
+    @discardableResult
+    func prepareCodexRemoteCostContext(now: Date = Date()) -> CodexRemoteCostContextInput {
+        let input = self.codexRemoteCostContextInput(now: now)
+        if self.codexRemoteContextCache.select(input) { self.codexRemoteCosts.invalidate() }
+        return input
+    }
+
+    func codexRemoteCostContext(now: Date = Date()) async throws -> CodexRemoteCostContext {
+        let input = self.prepareCodexRemoteCostContext(now: now)
+        return try await self.codexRemoteContextCache.fresh(for: input)
     }
 
     /// Only the ambient menu/settings cost presentation consults this selector. Publication and spend stay local.
     func codexCostPresentationSnapshot(now: Date = Date()) -> CostUsageTokenSnapshot? {
         guard self.codexRemoteCosts.enabled else { return self.tokenSnapshot(for: .codex) }
-        let context = self.codexRemoteCostContext(now: now)
-        self.codexRemoteCosts.reconcile(context)
+        let input = self.prepareCodexRemoteCostContext(now: now)
+        guard let context = self.codexRemoteContextCache.cached(for: input) else {
+            return self.tokenSnapshot(for: .codex)
+        }
         return self.codexRemoteCosts.selectedResult(context: context)?.snapshot ?? self.tokenSnapshot(for: .codex)
     }
 
     func codexRemoteCostPresentation(now: Date = Date()) -> CodexRemoteCostPresentation? {
         guard self.codexRemoteCosts.enabled else { return nil }
-        let context = self.codexRemoteCostContext(now: now)
-        self.codexRemoteCosts.reconcile(context)
-        guard context.isAmbient else { return nil }
+        let input = self.prepareCodexRemoteCostContext(now: now)
+        guard input.localScope == "codex:ambient" else { return nil }
+        let context = self.codexRemoteContextCache.cached(for: input)
         let state = self.codexRemoteCosts
-        let result = state.selectedResult(context: context)
-        let host = self.settings.hidePersonalInfo ? "Server" : context.source.host
+        let result = context.flatMap { state.selectedResult(context: $0) }
+        let host = self.settings.hidePersonalInfo ? "Server" : input.source.host
         let title = result == nil ? "Only this Mac" : "Native Codex · This Mac + \(host)"
         var details = [
             result == nil ? "This Mac’s local cost history" : "Native Codex logs",
-            "Day boundary: \(context.calendar.timeZone.identifier)",
+            "Day boundary: \(input.calendar.timeZone.identifier)",
         ]
         if let result {
             let formatter = DateFormatter()
             formatter.dateStyle = .short
             formatter.timeStyle = .medium
-            formatter.timeZone = context.calendar.timeZone
+            formatter.timeZone = input.calendar.timeZone
             details.append("As of \(formatter.string(from: result.capturedTo))")
         }
         var status: String
         if let error = state.errorMessage {
             status = error
+        } else if state.isCheckingConfiguration || (context == nil && !state.isRunning) {
+            status = "Checking source configuration…"
         } else if state.isRunning {
             switch state.phase {
             case .fetching: status = "Fetching server logs…"
@@ -106,10 +130,17 @@ extension UsageStore {
     }
 
     func refreshCodexRemoteCosts() {
-        let context = self.codexRemoteCostContext()
-        self.codexRemoteCosts.refresh(context: context) { [weak self] in
-            self?.codexRemoteCostContext() ?? context
-        }
+        let input = self.prepareCodexRemoteCostContext()
+        guard input.localScope == "codex:ambient" else { return }
+        self.codexRemoteCosts.refresh(
+            contextProvider: { [weak self] in
+                guard let self else { throw CancellationError() }
+                return try await self.codexRemoteContextCache.fresh(for: input)
+            },
+            currentContext: { [weak self] in
+                guard let self else { throw CancellationError() }
+                return try await self.codexRemoteCostContext()
+            })
     }
 
     func observeCodexRemoteCostContext() {
@@ -118,11 +149,17 @@ extension UsageStore {
             _ = self.settings.costUsageBucketTimeZoneIdentifier
             _ = self.settings.codexLocalSessionCostLedgerEnabled
             _ = self.settings.codexActiveSource
+            _ = self.codexRemoteCosts.enabled
+            _ = self.codexRemoteCosts.host
+            _ = self.codexRemoteCosts.home
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if self.codexRemoteCosts.enabled {
-                    self.codexRemoteCosts.reconcile(self.codexRemoteCostContext())
+                    let input = self.prepareCodexRemoteCostContext()
+                    _ = self.codexRemoteContextCache.cached(for: input)
+                } else {
+                    self.codexRemoteContextCache.invalidate()
                 }
                 self.observeCodexRemoteCostContext()
             }

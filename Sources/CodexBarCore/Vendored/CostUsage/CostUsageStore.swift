@@ -80,7 +80,10 @@ actor CostUsageStore {
         parserHash: CodexParserHash.value)
     static let cacheGeneration = "sqlite:\(CostUsageStore.schemaVersion)"
     static let compatiblePredecessorParserHashes: Set<String> = [
-        "710f475c3d1cfb61", // Unified-scan options and pricing injection preserve existing rows and checkpoints.
+        "6d48baf0ed980828", // Joint-scan seams preserve current upstream native rows and checkpoints.
+        "5a2a4042b3daf17d", // Pre-merge SSH candidate: upstream changes affect Claude, not native stored rows.
+        "c2ac37e84074d2b2", // Native rows are unchanged by Claude completion metadata.
+        "710f475c3d1cfb61", // 0.60.4 native rows and checkpoints are unchanged by Claude pricing corrections.
         "aa57b010b3c0bee4", // Provider-aware pricing preserves native rows and scan checkpoints.
         "aef0df6c73f8052c", // 0.60.1 rows and checkpoints survive routine rescan repairs.
         "4969a789db679c93", // 0.58.0 native rows, checkpoints, and reports survive queue reordering.

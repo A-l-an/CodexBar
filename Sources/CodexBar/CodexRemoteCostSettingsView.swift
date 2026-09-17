@@ -32,7 +32,7 @@ struct CodexRemoteCostSettingsView: View {
                     TextField("Remote Codex home", text: $remote.home, prompt: Text("~/.codex"))
                         .accessibilityIdentifier("codex-remote-home")
                 }
-                if self.store.tokenCostScope(for: .codex).signature != "codex:ambient" {
+                if self.store.codexRemoteLocalScope != "codex:ambient" {
                     Text("Server statistics require this Mac's shared native history, not a managed account's history.")
                         .font(.caption)
                     Button("Use this Mac’s native history") {
@@ -48,7 +48,7 @@ struct CodexRemoteCostSettingsView: View {
                         }
                     }
                     .disabled(remote.isRunning || remote.cleanupRequired || remote.host.isEmpty ||
-                        self.store.tokenCostScope(for: .codex).signature != "codex:ambient")
+                        self.store.codexRemoteLocalScope != "codex:ambient")
                     .accessibilityIdentifier("codex-remote-refresh")
                     if remote.isRunning {
                         Button("Cancel") { Task { await remote.cancel() } }

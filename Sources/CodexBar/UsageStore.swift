@@ -21,12 +21,7 @@ extension UsageStore {
         _ = self.claudeSwapLastError
         _ = self.claudeSwapRevision
         _ = self.tokenSnapshotPublications
-        _ = self.codexRemoteCosts.result
-        _ = self.codexRemoteCosts.enabled
-        _ = self.codexRemoteCosts.host
-        _ = self.codexRemoteCosts.home
-        _ = self.codexRemoteCosts.errorMessage
-        _ = self.codexRemoteCosts.phase
+        _ = self.codexRemoteCostObservationToken
         _ = self.tokenErrors
         _ = self.tokenRefreshInFlight
         _ = self.codexCostCatchUpActivity
@@ -274,6 +269,9 @@ final class UsageStore {
     @ObservationIgnored var _test_providerRefreshOverride: (@MainActor (UsageProvider) async -> Void)?
     @ObservationIgnored var _test_providerFetchOutcomeOverride: (@MainActor (
         UsageProvider) async -> ProviderFetchOutcome)?
+    #if DEBUG
+    @ObservationIgnored var _test_cursorCostCredentialFingerprintOverride: (() -> String?)?
+    #endif
     @ObservationIgnored var _test_tokenUsageRefreshOverride: (@MainActor (UsageProvider, Bool) async -> Void)?
     @ObservationIgnored var _test_tokenUsageSnapshotLoaderOverride: (@MainActor (
         UsageProvider,
@@ -329,6 +327,7 @@ final class UsageStore {
     @ObservationIgnored let codexFetcher: UsageFetcher
     @ObservationIgnored let claudeFetcher: any ClaudeUsageFetching
     let codexRemoteCosts: CodexRemoteCostStore
+    let codexRemoteContextCache: CodexRemoteCostContextCache
     @ObservationIgnored let codexRemotePricingCacheRoot: URL?
     @ObservationIgnored let codexRemoteLocalCostCacheRoot: URL?
     @ObservationIgnored let accountInfoOverride: AccountInfo?
@@ -491,6 +490,7 @@ final class UsageStore {
         claudeFetcher: (any ClaudeUsageFetching)? = nil,
         costUsageFetcher: CostUsageFetcher = CostUsageFetcher(),
         codexRemoteCostStore: CodexRemoteCostStore? = nil,
+        codexRemoteContextCache: CodexRemoteCostContextCache? = nil,
         codexRemotePricingCacheRoot: URL? = nil,
         codexRemoteLocalCostCacheRoot: URL? = nil,
         accountInfoOverride: AccountInfo? = nil,
@@ -511,6 +511,7 @@ final class UsageStore {
         self.browserDetection = browserDetection
         self.claudeFetcher = claudeFetcher ?? ClaudeUsageFetcher(browserDetection: browserDetection)
         self.costUsageFetcher = costUsageFetcher
+        self.codexRemoteContextCache = codexRemoteContextCache ?? CodexRemoteCostContextCache()
         self.codexRemotePricingCacheRoot = codexRemotePricingCacheRoot
         self.codexRemoteLocalCostCacheRoot = codexRemoteLocalCostCacheRoot
         self.accountInfoOverride = accountInfoOverride
@@ -567,6 +568,9 @@ final class UsageStore {
         }
         self.logStartupState()
         self.bindSettings()
+        self.codexRemoteContextCache.onResolve = { [weak self] context in
+            self?.codexRemoteCosts.reconcile(context)
+        }
         self.observeCodexRemoteCostContext()
         self.pathDebugInfo = PathDebugSnapshot(
             codexBinary: nil,
@@ -1505,8 +1509,8 @@ extension UsageStore {
         }
         let costScope = self.tokenCostScope(for: provider)
         let costScopeSignature = self.tokenSnapshotScopeSignature(for: provider)
-        let publicationRevision = self.providerPublicationRevision(for: provider)
-        let providerConfigRevision = self.settings.providerConfigRevision(for: provider)
+        let publicationScope = self.tokenRefreshPublicationScope(
+            for: provider, historyDays: historyDays, costScopeSignature: costScopeSignature)
         if !force, self.tokenRefreshCanReuseCurrentSnapshot(
             provider: provider,
             now: now,
@@ -1548,19 +1552,18 @@ extension UsageStore {
                 historyDays: historyDays,
                 initialSignature: costScopeSignature,
                 snapshot: snapshot)
-            guard self.tokenRefreshPublicationIsCurrent(
+            let publicationDisposition = self.tokenRefreshPublicationDisposition(
                 provider: provider,
-                publicationRevision: publicationRevision,
-                providerConfigRevision: providerConfigRevision,
-                historyDays: historyDays,
-                costScopeSignature: costScopeSignature,
+                scope: publicationScope,
                 fetchedCredentialScopeFingerprint: snapshot.credentialScopeFingerprint)
-            else {
+            guard publicationDisposition == .current else {
                 self.clearTokenFetchMetadataIfMatching(
                     provider: provider,
                     attemptedAt: now,
                     costScopeSignature: costScopeSignature)
-                self.requestTokenRefreshAfterStaleCompletion(for: provider)
+                if publicationDisposition == .scopeChanged {
+                    self.requestTokenRefreshAfterStaleCompletion(for: provider)
+                }
                 return
             }
             self.lastTokenFetchScope[provider.instanceID] = completedCostScopeSignature
@@ -1582,12 +1585,9 @@ extension UsageStore {
             self.tokenFailureGates[provider.instanceID]?.recordSuccess()
             self.persistWidgetSnapshot(reason: "token-usage")
         } catch {
-            guard self.tokenRefreshPublicationIsCurrent(
+            guard self.tokenRefreshPublicationDisposition(
                 provider: provider,
-                publicationRevision: publicationRevision,
-                providerConfigRevision: providerConfigRevision,
-                historyDays: historyDays,
-                costScopeSignature: costScopeSignature)
+                scope: publicationScope) == .current
             else {
                 self.clearTokenFetchMetadataIfMatching(
                     provider: provider,

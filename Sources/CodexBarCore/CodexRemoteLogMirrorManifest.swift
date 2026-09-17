@@ -144,6 +144,7 @@ struct CodexRemoteLogManifest: Equatable, Sendable {
           ancestor=${ancestor%/*}; [ -n "$ancestor" ] || ancestor=/
         done
         [ -d "$home" ] && [ -r "$home" ] && [ -x "$home" ] || exit 43
+        exec 3>&1
         printf 'CODEX_LOGS_V1\000%s\000' "$home"
         for root in sessions archived_sessions; do
           directory="$home/$root"
@@ -151,30 +152,45 @@ struct CodexRemoteLogManifest: Equatable, Sendable {
           if [ ! -e "$directory" ]; then printf 'R\000%s\000missing\000' "$root"; continue; fi
           [ -d "$directory" ] && [ -r "$directory" ] && [ -x "$directory" ] || exit 43
           printf 'R\000%s\000present\000' "$root"
-          find "$directory" -exec sh -c '
-            home=$1; limit=$2; shift 2
-            for file do
-              rel=${file#"$home/"}
-              case "$rel" in *[!A-Za-z0-9._/-]*) exit 44;; esac
-              [ ! -L "$file" ] || exit 44
-              if [ -d "$file" ]; then
-                [ -r "$file" ] && [ -x "$file" ] || exit 43
-                printf "D\000%s\000" "$rel"
-              elif [ -f "$file" ]; then
-                case "$rel" in *.jsonl) ;; *) continue;; esac
-                [ -r "$file" ] || exit 43
-                before=$(stat -c "%s|%y|%z|%d|%i" -- "$file") || exit 46
-                size=${before%%|*}
-                [ "$size" -le "$limit" ] || exit 45
-                hash=$(sha256sum -- "$file") || exit 46
-                hash=${hash%% *}
-                after=$(stat -c "%s|%y|%z|%d|%i" -- "$file") || exit 46
-                [ "$before" = "$after" ] || exit 46
-                printf "F\000%s\000%s\000%s\000%s\000" "$rel" "$size" "$before" "$hash"
-              else exit 44
-              fi
-            done
-          ' sh "$home" \#(limits.fileBytes) {} + || exit 46
+          # find -exec ... + does not preserve its child's exit status. Keep manifest records
+          # on fd 3 and drain a separate pipe of fixed codes, retaining only the first failure.
+          failure=$(
+            {
+              find "$directory" -exec sh -c '
+                exec 4>&1 1>&3
+                fail() { printf "%s\n" "$1" >&4; exit "$1"; }
+                home=$1; limit=$2; shift 2
+                for file do
+                  rel=${file#"$home/"}
+                  case "$rel" in *[!A-Za-z0-9._/-]*) fail 44;; esac
+                  [ ! -L "$file" ] || fail 44
+                  if [ -d "$file" ]; then
+                    [ -r "$file" ] && [ -x "$file" ] || fail 43
+                    printf "D\000%s\000" "$rel"
+                  elif [ -f "$file" ]; then
+                    case "$rel" in *.jsonl) ;; *) continue;; esac
+                    [ -r "$file" ] || fail 43
+                    before=$(stat -c "%s|%y|%z|%d|%i" -- "$file") || fail 46
+                    size=${before%%|*}
+                    [ "$size" -le "$limit" ] || fail 45
+                    hash=$(sha256sum -- "$file") || fail 46
+                    hash=${hash%% *}
+                    after=$(stat -c "%s|%y|%z|%d|%i" -- "$file") || fail 46
+                    [ "$before" = "$after" ] || fail 46
+                    printf "F\000%s\000%s\000%s\000%s\000" "$rel" "$size" "$before" "$hash"
+                  else fail 44
+                  fi
+                done
+              ' sh "$home" \#(limits.fileBytes) {} + || printf '46\n'
+            } | {
+              first=
+              while IFS= read -r code; do
+                case "$first:$code" in (:43|:44|:45|:46) first=$code;; esac
+              done
+              printf '%s' "$first"
+            }
+          )
+          [ -z "$failure" ] || exit "$failure"
         done
         printf 'END\000'
         """#

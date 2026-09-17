@@ -330,7 +330,7 @@ struct CodexRemoteCostStoreTests {
         let localKPIs = try #require(store.menuCardModel(for: .codex).inlineUsageDashboard?.kpis)
         #expect(localKPIs.suffix(2).map(\.title) == [L("Latest tokens"), historyTokensTitle])
         remote.grantConsent()
-        let context = store.codexRemoteCostContext()
+        let context = try await store.codexRemoteCostContext()
         remote.refresh(context: context) { context }
         await self.waitForCall(harness)
         await harness.finish(self.result(context: context))

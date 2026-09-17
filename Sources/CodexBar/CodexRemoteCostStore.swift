@@ -38,6 +38,7 @@ final class CodexRemoteCostStore {
     private(set) var errorMessage: String?
     private(set) var cleanupRequired = false
     private(set) var isRunning = false
+    private(set) var isCheckingConfiguration = false
     private(set) var needsRefresh = false
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let loader: Loader
@@ -72,7 +73,10 @@ final class CodexRemoteCostStore {
     func invalidate() {
         self.generation &+= 1
         self.task?.cancel()
-        if self.isRunning { self.phase = nil }
+        if self.isRunning {
+            self.phase = nil
+            self.isCheckingConfiguration = false
+        }
         self.result = nil
         self.resultContext = nil
         self.needsRefresh = true
@@ -81,54 +85,66 @@ final class CodexRemoteCostStore {
 
     func reconcile(_ context: CodexRemoteCostContext) {
         if let previous = self.resultContext ?? self.activeContext, previous != context {
-            self.invalidate()
-            self.activeContext = nil
+            if self.isRunning, self.activeContext == nil {
+                // The newly requested initial context supersedes an older frozen result, not its own request.
+                self.result = nil
+                self.resultContext = nil
+                self.needsRefresh = true
+            } else {
+                self.invalidate()
+                self.activeContext = nil
+            }
         }
     }
 
-    /// The caller supplies live context again before publication, including local configuration fingerprints.
-    func refresh(context: CodexRemoteCostContext, currentContext: @escaping @MainActor () -> CodexRemoteCostContext) {
-        guard self.enabled, self.consentGranted, context.isAmbient, !self.isRunning,
-              !self.cleanupRequired else { return }
-        guard context.sshRevision != CodexRemoteLogMirror.unavailableConfigurationFingerprint else {
-            self.invalidate()
-            self.errorMessage = "SSH configuration cannot be verified. Check that configuration files are readable, " +
-                "valid text and within the size limit before refreshing."
-            return
-        }
-        do {
-            try context.source.validate()
-        } catch {
-            self.errorMessage = Self.safeMessage(error)
-            return
-        }
-        self.reconcile(context)
+    func refresh(
+        context: CodexRemoteCostContext,
+        currentContext: @escaping @MainActor () async throws -> CodexRemoteCostContext)
+    {
+        guard self.canRefresh, context.isAmbient, self.validate(context) else { return }
+        self.refresh(contextProvider: { context }, currentContext: currentContext)
+    }
+
+    /// Owns both context checks so cancellation drains configuration work as well as the remote transaction.
+    func refresh(
+        contextProvider: @escaping @MainActor () async throws -> CodexRemoteCostContext,
+        currentContext: @escaping @MainActor () async throws -> CodexRemoteCostContext)
+    {
+        guard self.canRefresh else { return }
         self.generation &+= 1
         let generation = self.generation
-        self.activeContext = context
         self.isRunning = true
-        self.phase = .cleaning
+        self.isCheckingConfiguration = true
         self.errorMessage = nil
         let loader = self.loader
         let cleanup = self.cleanup
         self.task = Task { [weak self] in
             do {
+                let context = try await contextProvider()
+                guard let self else { return }
+                guard self.generation == generation, !Task.isCancelled, self.enabled,
+                      context.isAmbient, self.validate(context)
+                else { self.finish(); return }
+                self.reconcile(context)
+                self.activeContext = context
+                self.isCheckingConfiguration = false
+                self.phase = .cleaning
                 try await cleanup()
                 try Task.checkCancellation()
-                self?.setPhase(.fetching, generation: generation)
+                self.setPhase(.fetching, generation: generation)
                 let result = try await loader(context.request) { [weak self] phase in
                     await self?.setPhase(phase, generation: generation)
                 }
-                guard let self else { return }
-                let liveContext = currentContext()
+                self.isCheckingConfiguration = true
+                let liveContext = try await currentContext()
                 guard self.generation == generation, !Task.isCancelled,
                       self.enabled, context == liveContext
                 else {
+                    self.invalidate()
                     self.finish()
-                    self.reconcile(liveContext)
                     return
                 }
-                // The service returns only after deleting raw mirror and scan artifacts.
+                // The service has cleaned raw artifacts, and a new asynchronous revision read has completed.
                 self.result = result
                 self.resultContext = context
                 self.needsRefresh = false
@@ -146,6 +162,27 @@ final class CodexRemoteCostStore {
                 }
                 self.finish()
             }
+        }
+    }
+
+    private var canRefresh: Bool {
+        self.enabled && self.consentGranted && !self.isRunning && !self.cleanupRequired
+    }
+
+    private func validate(_ context: CodexRemoteCostContext) -> Bool {
+        guard context.sshRevision != CodexRemoteLogMirror.unavailableConfigurationFingerprint else {
+            self.result = nil
+            self.resultContext = nil
+            self.errorMessage = "SSH configuration cannot be verified. Check that configuration files are readable, " +
+                "valid text and within the size limit before refreshing."
+            return false
+        }
+        do {
+            try context.source.validate()
+            return true
+        } catch {
+            self.errorMessage = Self.safeMessage(error)
+            return false
         }
     }
 
@@ -194,6 +231,7 @@ final class CodexRemoteCostStore {
     }
 
     private func finish() {
+        self.isCheckingConfiguration = false
         self.phase = nil
         self.activeContext = nil
         self.isRunning = false

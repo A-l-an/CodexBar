@@ -151,9 +151,26 @@ protocol UpdaterProviding: AnyObject {
     var automaticallyDownloadsUpdates: Bool { get set }
     var isAvailable: Bool { get }
     var unavailableReason: String? { get }
+    var manualUpdateCommand: ManualUpdateCommand? { get }
     var updateStatus: UpdateStatus { get }
     func checkForUpdates(_ sender: Any?)
     func installUpdate()
+}
+
+extension UpdaterProviding {
+    var manualUpdateCommand: ManualUpdateCommand? {
+        nil
+    }
+}
+
+enum ManualUpdateCommand: Sendable {
+    case homebrew
+
+    var command: String {
+        switch self {
+        case .homebrew: "brew upgrade --cask steipete/tap/codexbar"
+        }
+    }
 }
 
 /// No-op updater used for debug builds and non-bundled runs to suppress Sparkle dialogs.
@@ -162,10 +179,19 @@ final class DisabledUpdaterController: UpdaterProviding {
     var automaticallyDownloadsUpdates: Bool = false
     let isAvailable: Bool = false
     let unavailableReason: String?
+    let manualUpdateCommand: ManualUpdateCommand?
     let updateStatus = UpdateStatus()
 
-    init(unavailableReason: String? = nil) {
+    init(unavailableReason: String? = nil, manualUpdateCommand: ManualUpdateCommand? = nil) {
         self.unavailableReason = unavailableReason
+        self.manualUpdateCommand = manualUpdateCommand
+    }
+
+    static func homebrew() -> DisabledUpdaterController {
+        let command = ManualUpdateCommand.homebrew
+        return DisabledUpdaterController(
+            unavailableReason: "Updates managed by Homebrew. Run: \(command.command)",
+            manualUpdateCommand: command)
     }
 
     func checkForUpdates(_ sender: Any?) {}
@@ -190,18 +216,6 @@ import Sparkle
 final class SparkleUpdaterController: NSObject, UpdaterProviding, SPUUpdaterDelegate {
     private static let presentationTimeout: Duration = .seconds(60)
 
-    private final class ImmediateInstallHandler: @unchecked Sendable {
-        private let handler: () -> Void
-
-        init(_ handler: @escaping () -> Void) {
-            self.handler = handler
-        }
-
-        func install() {
-            self.handler()
-        }
-    }
-
     private lazy var controller = SPUStandardUpdaterController(
         startingUpdater: false,
         updaterDelegate: self,
@@ -209,11 +223,11 @@ final class SparkleUpdaterController: NSObject, UpdaterProviding, SPUUpdaterDele
     let updateStatus = UpdateStatus()
     let unavailableReason: String? = nil
     let isAvailable = true
-    private var immediateInstallHandler: ImmediateInstallHandler?
     private var dockPresentationAttemptID: DockIconPresentationAttemptID?
 
-    init(savedAutoUpdate: Bool) {
+    init(savedAutoUpdate: Bool, startingUpdater: Bool = true) {
         super.init()
+        guard startingUpdater else { return }
         let updater = self.controller.updater
         updater.automaticallyChecksForUpdates = savedAutoUpdate
         updater.automaticallyDownloadsUpdates = savedAutoUpdate
@@ -237,43 +251,37 @@ final class SparkleUpdaterController: NSObject, UpdaterProviding, SPUUpdaterDele
     }
 
     func installUpdate() {
-        guard let immediateInstallHandler else {
-            self.checkForUpdates(nil)
-            return
-        }
-
-        immediateInstallHandler.install()
+        self.checkForUpdates(nil)
     }
 
     nonisolated func updater(_ updater: SPUUpdater, failedToDownloadUpdate item: SUAppcastItem, error: Error) {
-        self.clearPendingInstall()
+        self.clearUpdateReadyState()
     }
 
     nonisolated func userDidCancelDownload(_ updater: SPUUpdater) {
-        self.clearPendingInstall()
+        self.clearUpdateReadyState()
     }
 
     nonisolated func updater(
         _ updater: SPUUpdater,
         willInstallUpdateOnQuit item: SUAppcastItem,
-        immediateInstallationBlock immediateInstallHandler: @escaping () -> Void)
+        immediateInstallationBlock _: @escaping () -> Void)
         -> Bool
     {
-        let installHandler = ImmediateInstallHandler(immediateInstallHandler)
         Task { @MainActor in
-            self.immediateInstallHandler = installHandler
             self.updateStatus.isUpdateReady = true
         }
-        return true
+        // Taking installation control stalls Sparkle's session and makes manual checks no-op.
+        // Let Sparkle resume the staged installer and present its UI when the user asks.
+        return false
     }
 
     nonisolated func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
-        self.clearPendingInstall()
+        self.clearUpdateReadyState()
     }
 
-    private nonisolated func clearPendingInstall() {
+    private nonisolated func clearUpdateReadyState() {
         Task { @MainActor in
-            self.immediateInstallHandler = nil
             self.updateStatus.isUpdateReady = false
         }
     }
@@ -302,12 +310,11 @@ final class SparkleUpdaterController: NSObject, UpdaterProviding, SPUUpdaterDele
         forUpdate updateItem: SUAppcastItem,
         state: SPUUserUpdateState)
     {
-        let downloaded = state.stage == .downloaded
+        let readyToInstall = state.stage == .downloaded || state.stage == .installing
         Task { @MainActor in
             if choice == .dismiss {
-                self.updateStatus.isUpdateReady = downloaded
+                self.updateStatus.isUpdateReady = readyToInstall
             } else {
-                self.immediateInstallHandler = nil
                 self.updateStatus.isUpdateReady = false
             }
         }
@@ -340,8 +347,7 @@ private func makeUpdaterController() -> UpdaterProviding {
     }
 
     if InstallOrigin.isHomebrewCask(appBundleURL: bundleURL) {
-        return DisabledUpdaterController(
-            unavailableReason: "Updates managed by Homebrew. Run: brew upgrade --cask steipete/tap/codexbar")
+        return DisabledUpdaterController.homebrew()
     }
 
     guard isDeveloperIDSigned(bundleURL: bundleURL) else {

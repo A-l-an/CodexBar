@@ -1023,7 +1023,10 @@ extension CostUsageStoreTests {
 
 extension CostUsageStoreTests {
     @Test(arguments: [
-        "710f475c3d1cfb61",
+        "6d48baf0ed980828", // Current upstream before joint-scan integration.
+        "5a2a4042b3daf17d", // Pre-merge SSH candidate before Claude-only upstream changes.
+        "c2ac37e84074d2b2",
+        "710f475c3d1cfb61", // Released in 0.60.4.
         "aa57b010b3c0bee4",
         "aef0df6c73f8052c",
         "4969a789db679c93", // Released in 0.58.0.
@@ -1055,6 +1058,9 @@ extension CostUsageStoreTests {
         let fixture = try StoreFixture()
         defer { fixture.remove() }
         #expect(CostUsageStore.compatiblePredecessorParserHashes == [
+            "6d48baf0ed980828",
+            "5a2a4042b3daf17d",
+            "c2ac37e84074d2b2",
             "710f475c3d1cfb61",
             "aa57b010b3c0bee4",
             "aef0df6c73f8052c",

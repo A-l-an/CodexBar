@@ -110,7 +110,11 @@ clearly shown with its existing cutoff time. A failed remote read or unsupported
 when no local snapshot is available, it says unavailable rather than inventing a zero.
 
 Changing the destination, home, effective local scope, window, day boundary or relevant configuration revision
-invalidates the old result. A late result cannot replace newer settings. Ordinary local refreshes are never added
+invalidates the old result. Menu rendering reads cached revisions; filesystem verification runs off the main actor,
+coalescing concurrent lookups. External configuration edits are rechecked on demand after at most five seconds of
+cached freshness. While an expired revision is being checked, the view temporarily shows local data; an unchanged
+revision restores the retained combined snapshot. Every explicit refresh obtains a fresh revision before SSH and
+again before publication. A late result cannot replace newer settings. Ordinary local refreshes are never added
 to a previously combined total. SSH revision checks hash the contents of the supported primary/direct Include configuration files, including
 explicit config symlink targets, so a same-size edit with a restored timestamp still invalidates a result. They read
 at most 1 MiB per file, 8 MiB total and 4,096 direct glob matches; unverifiable inputs prevent a new refresh.
