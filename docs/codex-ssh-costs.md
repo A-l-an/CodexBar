@@ -61,10 +61,14 @@ line limit, unsupported ancestry and unmetered inherited history can also cause 
 records remain supported when they do not carry scanner state or usage. This
 does not claim to solve every exported, copied-between-identities or fork-family shape.
 
-Explicit priority/fast evidence that the joint path cannot safely preserve is rejected instead of silently repriced
-as standard. Unrelated local trace evidence is not applied to remote records. When no remote-specific tier evidence
-is available, the view explains that its JSONL-based estimates do not establish parity with the remote machine's
-independent trace-aware billing estimate.
+The combined report preserves local Priority/Fast evidence from retained usage rows and the local trace database.
+Retained pricing follows the exact session and usage-row identity through copy/prefix deduplication; local trace
+evidence is scoped to the local session and turn, so an unrelated remote session with the same turn ID stays
+independent. Pricing uses the same API Fast rates and frozen Mac pricing configuration as the native report.
+Ambiguous trace ownership, unmatched retained rows, aggregate-only evidence without row ownership, and unsupported
+inline tier markers still cause local fallback rather than silently becoming Standard. When no remote-specific
+tier evidence is available, JSONL-based estimates do not establish parity with the remote machine's independent
+trace-aware billing estimate.
 
 If the normal local ledger retains history whose original input is missing or no longer matches, the combined
 operation does not replace or trim that ledger. It falls back locally and explains that it cannot reconstruct the

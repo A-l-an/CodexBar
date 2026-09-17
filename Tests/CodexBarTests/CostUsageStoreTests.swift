@@ -1023,6 +1023,7 @@ extension CostUsageStoreTests {
 
 extension CostUsageStoreTests {
     @Test(arguments: [
+        "ee5aeff04c030053", // SSH trace ownership adds metadata without changing native stored rows.
         "6d48baf0ed980828", // Current upstream before joint-scan integration.
         "5a2a4042b3daf17d", // Pre-merge SSH candidate before Claude-only upstream changes.
         "c2ac37e84074d2b2",
@@ -1058,6 +1059,7 @@ extension CostUsageStoreTests {
         let fixture = try StoreFixture()
         defer { fixture.remove() }
         #expect(CostUsageStore.compatiblePredecessorParserHashes == [
+            "ee5aeff04c030053",
             "6d48baf0ed980828",
             "5a2a4042b3daf17d",
             "c2ac37e84074d2b2",

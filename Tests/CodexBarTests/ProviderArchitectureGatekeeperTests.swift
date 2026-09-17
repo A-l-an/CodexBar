@@ -1823,7 +1823,7 @@ struct ProviderArchitectureGatekeeperTests {
             reason: "Only the live Codex-native cost card may overlay a manually refreshed remote snapshot."),
         AllowedProviderConstruct(
             path: "Sources/CodexBarCore/CodexCombinedCostFetcher.swift",
-            line: 179,
+            line: 181,
             anchor: "provider: .codex,",
             expectedProviderIDs: ["codex"],
             expectedReferenceCount: 1,

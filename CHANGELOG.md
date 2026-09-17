@@ -3,7 +3,7 @@
 ## 0.60.5 — Unreleased
 
 ### Added
-- Codex: manually refresh one SSH server into the native cost card and history chart, using temporary log copies, a unified native scan, verified copy/prefix deduplication, and explicit local fallback when histories cannot be safely combined.
+- Codex: manually refresh one SSH server into the native cost card and history chart, using temporary log copies, a unified native scan, verified copy/prefix deduplication, retained local Priority/Fast pricing, and explicit local fallback when histories cannot be safely combined.
 
 ### Fixed
 - Kimi: accept ratio-pool Code API responses, preserve absent weekly quotas, and show the reported monthly Total usage without browser authentication (#3694). Thanks @eliasburlison!

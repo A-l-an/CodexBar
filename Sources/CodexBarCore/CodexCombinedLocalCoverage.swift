@@ -7,7 +7,9 @@ import CSQLite3
 
 /// No StoreAccess, migration, schema repair or legacy-artifact cleanup is allowed on the normal ledger.
 enum CodexCombinedLocalCoverage {
-    static func validate(request: CodexCombinedCostRequest, since: Date) throws {
+    @discardableResult
+    static func validate(request: CodexCombinedCostRequest, since: Date) throws -> CodexCombinedPriorityEvidence {
+        var evidence = CodexCombinedPriorityEvidence()
         let root = request.localCostCacheRoot ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
             .first!.appendingPathComponent("CodexBar", isDirectory: true)
         let directory = root.appendingPathComponent("cost-usage", isDirectory: true)
@@ -15,7 +17,7 @@ enum CodexCombinedLocalCoverage {
             throw CodexCombinedCostError.localCoverage
         }
         let url = directory.appendingPathComponent(CostUsageStore.databaseFilename)
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        guard FileManager.default.fileExists(atPath: url.path) else { return evidence }
         var opened: OpaquePointer?
         guard sqlite3_open_v2(url.path, &opened, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let database = opened else {
             if let opened { sqlite3_close(opened) }
@@ -43,9 +45,8 @@ enum CodexCombinedLocalCoverage {
                 relevantPaths: relevantPaths,
                 ledgerRoots: metadata?.rootMtimes,
                 home: request.localCodexHome)
-            guard !aggregates.contains(where: {
-                scopedPaths.contains($0.path) && $0.aggregate.priorityTokens > 0
-            }) else { throw CodexCombinedCostError.pricingEvidence }
+            let range = CostUsageScanner.CostUsageDayRange(since: since, until: request.now, calendar: request.calendar)
+            let byPath = Dictionary(grouping: aggregates, by: \.path)
             for file in files where scopedPaths.contains(file.path) {
                 let metadata = CostUsageScanner.codexFileMetadata(fileURL: URL(fileURLWithPath: file.path))
                 // A changed/truncated source requires a normal local refresh before this strict coverage check.
@@ -55,7 +56,13 @@ enum CodexCombinedLocalCoverage {
                 else {
                     throw CodexCombinedCostError.localCoverage
                 }
+                let rows = try CostUsageStore.readUsageRows(database, path: file.path).map {
+                    try JSONDecoder().decode(CostUsageScanner.CodexUsageRow.self, from: $0.payload)
+                }
+                try evidence.retain(
+                    file: file, rows: rows, aggregates: (byPath[file.path] ?? []).map(\.aggregate), range: range)
             }
+            return evidence
         } catch let error as CodexCombinedCostError {
             throw error
         } catch {

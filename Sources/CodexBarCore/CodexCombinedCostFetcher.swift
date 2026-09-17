@@ -150,11 +150,11 @@ public struct CodexCombinedCostFetcher: Sendable {
             value: -(request.historyDays - 1),
             to: request.calendar.startOfDay(for: request.now))
             ?? request.now
-        try CodexCombinedLocalCoverage.validate(request: request, since: since)
+        let retainedPriority = try CodexCombinedLocalCoverage.validate(request: request, since: since)
         let localRoots = ["sessions", "archived_sessions"].map {
             request.localCodexHome.appendingPathComponent($0, isDirectory: true)
         }
-        let roots = try CodexCombinedLogPreparation.prepare(
+        let prepared = try CodexCombinedLogPreparation.prepare(
             roots: localRoots + remote.roots,
             destination: remote.workDirectory.appendingPathComponent(
                 "canonical",
@@ -164,7 +164,9 @@ public struct CodexCombinedCostFetcher: Sendable {
             since: since,
             until: request.now,
             calendar: request.calendar,
+            retainedPriority: retainedPriority,
             checkCancellation: checkCancellation)
+        let roots = prepared.roots
         try FileManager.default.createDirectory(
             at: remote.scanCacheRoot, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         var options = CostUsageScanner.Options(
@@ -175,7 +177,7 @@ public struct CodexCombinedCostFetcher: Sendable {
         options.codexExplicitSessionRoots = roots
         options.codexFrozenPricing = pricing
         options.refreshMinIntervalSeconds = 0
-        let daily = try CostUsageScanner.loadDailyReportCancellable(
+        _ = try CostUsageScanner.loadDailyReportCancellable(
             provider: .codex,
             since: since,
             until: request.now,
@@ -184,15 +186,24 @@ public struct CodexCombinedCostFetcher: Sendable {
             checkCancellation: checkCancellation)
         try checkCancellation()
         // This is exclusively the owned ephemeral store; never open the normal ledger through StoreAccess.
-        let view = CostUsageStore(cacheRoot: remote.scanCacheRoot).syncLoadCodexReadView(
-            calendar: request.calendar,
-            purpose: .status)
+        let cache = CostUsageStore(cacheRoot: remote.scanCacheRoot).syncLoadCodexCache(
+            calendar: request.calendar, loadTokenSnapshots: false)
+        let view = CostUsageStoreReadView(cache: cache)
         let status = view.catchUpStatus(
             roots: roots,
             rootsFingerprint: CostUsageScanner.codexRootsFingerprint(options: options))
         guard status.historyCoverageIsEstablished, !status.pending else {
             throw CodexCombinedCostError.incompleteScan
         }
+        let range = CostUsageScanner.CostUsageDayRange(since: since, until: request.now, calendar: request.calendar)
+        let pricedCache = try prepared.priority.applying(to: cache, range: range, checkCancellation: checkCancellation)
+        let daily = CostUsageScanner.buildCodexReportFromCache(
+            cache: pricedCache,
+            range: range,
+            modelsDevCatalog: pricing.catalog,
+            priorityTurns: [:],
+            customPricing: pricing.custom)
+        try checkCancellation()
         guard daily.data.allSatisfy({ $0.coverageCounts.unmetered == 0 }) else {
             throw CodexCombinedCostError.missingAncestor
         }

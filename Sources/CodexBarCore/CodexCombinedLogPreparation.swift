@@ -3,6 +3,11 @@ import Foundation
 /// The scanner and its recursive ancestor index see only these validated canonical copies.
 /// Comparison preserves every record byte and occurrence, including non-usage records.
 enum CodexCombinedLogPreparation {
+    struct Prepared {
+        let roots: [URL]
+        let priority: CodexCombinedPriorityEvidence
+    }
+
     struct Session {
         let data: Data
         let source: URL
@@ -26,12 +31,14 @@ enum CodexCombinedLogPreparation {
         since: Date? = nil,
         until: Date? = nil,
         calendar: Calendar = .current,
-        checkCancellation: @escaping @Sendable () throws -> Void) throws -> [URL]
+        retainedPriority: CodexCombinedPriorityEvidence = .init(),
+        checkCancellation: @escaping @Sendable () throws -> Void) throws -> Prepared
     {
         let manager = FileManager.default
         var sessions: [String: Session] = [:]
-        var localIDs = Set<String>()
-        var localTurnIDs = Set<String>()
+        var localTurns: [String: Set<String>] = [:]
+        var priority = retainedPriority
+        var retainedPaths = Set(priority.retainedSessionsByPath.keys)
         var bytes = 0
         var count = 0
         var remoteFiles = Set<URL>()
@@ -74,8 +81,12 @@ enum CodexCombinedLogPreparation {
                     rootIndex: index,
                     checkCancellation: checkCancellation)
                 if index < localRootCount {
-                    localIDs.insert(session.id)
-                    localTurnIDs.formUnion(session.turnIDs)
+                    localTurns[session.id, default: []].formUnion(session.turnIDs)
+                    let path = file.resolvingSymlinksInPath().path
+                    if let retainedID = priority.retainedSessionsByPath[path] {
+                        guard retainedID == session.id else { throw CodexCombinedCostError.pricingEvidence }
+                        retainedPaths.remove(path)
+                    }
                 }
                 if let previous = sessions[session.id] {
                     let shorter = previous.records.count <= session.records.count ? previous : session
@@ -89,9 +100,10 @@ enum CodexCombinedLogPreparation {
                 }
             }
         }
-        try self.validateLocalTrace(
-            localTraceURL,
-            localIdentities: (localIDs, localTurnIDs),
+        guard retainedPaths.isEmpty else { throw CodexCombinedCostError.pricingEvidence }
+        try priority.resolveTrace(
+            at: localTraceURL,
+            localTurns: localTurns,
             since: since,
             until: until,
             calendar: calendar)
@@ -105,12 +117,13 @@ enum CodexCombinedLogPreparation {
                 parent = ancestor.parent
             }
         }
-        return try self.materialize(
+        let canonicalRoots = try self.materialize(
             sessions: sessions,
             rootCount: roots.count,
             remoteFiles: remoteFiles,
             destination: destination,
             checkCancellation: checkCancellation)
+        return Prepared(roots: canonicalRoots, priority: priority)
     }
 
     private static func materialize(
@@ -157,41 +170,6 @@ enum CodexCombinedLogPreparation {
             }
         }
         return canonicalRoots
-    }
-
-    private static func validateLocalTrace(
-        _ localTraceURL: URL?,
-        localIdentities: (sessions: Set<String>, turns: Set<String>),
-        since: Date?,
-        until: Date?,
-        calendar: Calendar) throws
-    {
-        if let localTraceURL, FileManager.default.fileExists(atPath: localTraceURL.path),
-           !localIdentities.sessions.isEmpty
-        {
-            #if canImport(SQLite3)
-            let resolution = CostUsageScanner.resolveCodexPriorityTurns(
-                databaseURL: localTraceURL,
-                expectExistingDatabase: true)
-            guard !resolution.validationPending else { throw CodexCombinedCostError.pricingEvidence }
-            let end = until.flatMap { calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: $0)) }
-            let relevant = resolution.turns.values.contains { turn in
-                if let timestamp = turn.timestamp,
-                   let date = ISO8601DateParser.parse(timestamp)
-                   ?? Double(timestamp).map({ Date(timeIntervalSince1970: $0) })
-                {
-                    if let since, date < since { return false }
-                    if let end, date >= end { return false }
-                }
-                if let threadID = turn.threadID { return localIdentities.sessions.contains(threadID) }
-                return localIdentities.turns.contains(turn.turnID)
-            }
-            guard !relevant else { throw CodexCombinedCostError.pricingEvidence }
-            #else
-            // Upstream trace parsing is macOS-only; do not silently lose known evidence on other platforms.
-            throw CodexCombinedCostError.pricingEvidence
-            #endif
-        }
     }
 
     private static func files(
@@ -302,7 +280,14 @@ enum CodexCombinedLogPreparation {
         guard object["type"] as? String == "event_msg", let payload = object["payload"] as? [String: Any] else {
             return false
         }
-        if payload["type"] as? String == "task_started" { return true }
+        if payload["type"] as? String == "task_started" {
+            // The native reader skips state events without a valid outer timestamp. Retaining their
+            // turn IDs only in the preparation index would detach Priority evidence from usage rows.
+            guard let timestamp = object["timestamp"] as? String,
+                  CostUsageScanner.dateFromTimestamp(timestamp) != nil
+            else { throw CodexCombinedCostError.unsupportedOverlap }
+            return true
+        }
         guard payload["type"] as? String == "token_count", payload["info"] is [String: Any] else { return false }
         guard let timestamp = object["timestamp"] as? String,
               CostUsageScanner.dateFromTimestamp(timestamp) != nil

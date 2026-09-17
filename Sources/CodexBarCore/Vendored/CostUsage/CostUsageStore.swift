@@ -80,6 +80,7 @@ actor CostUsageStore {
         parserHash: CodexParserHash.value)
     static let cacheGeneration = "sqlite:\(CostUsageStore.schemaVersion)"
     static let compatiblePredecessorParserHashes: Set<String> = [
+        "ee5aeff04c030053", // SSH evidence ownership adds trace metadata without changing native rows.
         "6d48baf0ed980828", // Joint-scan seams preserve current upstream native rows and checkpoints.
         "5a2a4042b3daf17d", // Pre-merge SSH candidate: upstream changes affect Claude, not native stored rows.
         "c2ac37e84074d2b2", // Native rows are unchanged by Claude completion metadata.

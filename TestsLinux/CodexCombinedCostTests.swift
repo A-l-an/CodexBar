@@ -359,7 +359,7 @@ struct CodexCombinedCostTests {
                 cacheRoot: work.appendingPathComponent("cache"),
                 codexTraceDatabaseURL: work.appendingPathComponent("missing.sqlite"),
                 calendar: fixture.calendar)
-            options.codexExplicitSessionRoots = canonical.reversed()
+            options.codexExplicitSessionRoots = canonical.roots.reversed()
             options.codexFrozenPricing = CodexCombinedPricingContext.freeze(request: fixture.request)
             options.refreshMinIntervalSeconds = 0
             for _ in 0..<2 {
@@ -505,6 +505,36 @@ struct CodexCombinedCostTests {
     }
 
     #if canImport(SQLite3)
+    @Test
+    func `local Fast trace survives combined scan without pricing unrelated remote turns`() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        var records = fixture.records(id: "local", model: "gpt-5.4")
+        records.insert(
+            ["type": "event_msg", "timestamp": "2026-09-16T12:00:00Z", "payload": [
+                "type": "task_started",
+                "turn_id": "fast-turn",
+            ]],
+            at: 2)
+        try fixture.write(records, root: fixture.localSessions)
+        var remote = fixture.records(id: "remote", model: "gpt-5.4")
+        remote.insert(
+            ["type": "event_msg", "timestamp": "2026-09-16T12:00:00Z", "payload": [
+                "type": "task_started",
+                "turn_id": "fast-turn",
+            ]],
+            at: 2)
+        try fixture.write(remote, root: fixture.remoteSessions)
+        try fixture.writeTrace(thread: "local", turn: "fast-turn", model: "gpt-5.4")
+        let result = try fixture.scan()
+        #expect(result.last30DaysTokens == 220)
+        // Custom Standard is $0.00025; gpt-5.4 API Fast is 2x, only for the local session.
+        #expect(abs((result.last30DaysCostUSD ?? -1) - 0.00075) < 0.000000001)
+        let breakdown = try #require(result.daily.first?.modelBreakdowns?.first)
+        #expect(breakdown.priorityTokens == 110)
+        #expect(breakdown.standardTokens == 110)
+    }
+
     @Test(arguments: ["turn_id", "turnId", "id", "info.turn_id", "info.turnId", "info.id"])
     func `native turn aliases retain local trace evidence without a thread ID`(field: String) throws {
         let fixture = try Fixture()
@@ -548,7 +578,7 @@ struct CodexCombinedCostTests {
         #expect(sqlite3_step(row) == SQLITE_DONE)
         sqlite3_finalize(row)
         sqlite3_close(database)
-        #expect(throws: CodexCombinedCostError.pricingEvidence) { try fixture.scan() }
+        #expect(try fixture.scan().last30DaysTokens == 110)
     }
     #endif
 
@@ -614,7 +644,7 @@ struct CodexCombinedCostTests {
     }
     #endif
 
-    private struct Fixture {
+    struct Fixture {
         let root: URL
         let calendar: Calendar
         let now: Date
@@ -661,7 +691,9 @@ struct CodexCombinedCostTests {
             self.calendar = calendar
             self.now = ISO8601DateFormatter().date(from: "2026-09-16T12:00:00Z")!
             try FileManager.default.createDirectory(at: self.pricingRoot, withIntermediateDirectories: true)
-            let prices = Data(#"{"gpt-5.2-codex":{"input":2,"output":8,"cacheRead":0.5}}"#.utf8)
+            let prices = Data(
+                #"{"gpt-5.2-codex":{"input":2,"output":8,"cacheRead":0.5},"gpt-5.4":{"input":2,"output":8,"cacheRead":0.5}}"#
+                    .utf8)
             try prices.write(to: self.pricingRoot.appendingPathComponent(CostUsageCustomPricing.fileName))
         }
 
@@ -675,6 +707,39 @@ struct CodexCombinedCostTests {
                 provider: .codex, since: self.now, until: self.now, now: self.now, options: options)
             #expect(report.summary?.totalTokens == 110)
         }
+
+        #if canImport(SQLite3)
+        func writeTrace(thread: String?, turn: String, model: String) throws {
+            let url = self.localHome.appendingPathComponent("logs_2.sqlite")
+            var opened: OpaquePointer?
+            try #require(sqlite3_open(url.path, &opened) == SQLITE_OK)
+            let database = try #require(opened)
+            defer { sqlite3_close(database) }
+            try #require(sqlite3_exec(
+                database,
+                "CREATE TABLE logs(id INTEGER PRIMARY KEY, ts INTEGER, feedback_log_body TEXT)",
+                nil,
+                nil,
+                nil) == SQLITE_OK)
+            let body = (thread.map { "thread_id=\($0) " } ?? "") + "turn.id=\(turn) websocket request: "
+                + "{\"type\":\"response.create\",\"model\":\"\(model)\",\"service_tier\":\"priority\"}"
+            var prepared: OpaquePointer?
+            try #require(sqlite3_prepare_v2(
+                database,
+                "INSERT INTO logs(ts, feedback_log_body) VALUES (?,?)",
+                -1,
+                &prepared,
+                nil) ==
+                SQLITE_OK)
+            let statement = try #require(prepared)
+            defer { sqlite3_finalize(statement) }
+            sqlite3_bind_int64(statement, 1, Int64(self.now.timeIntervalSince1970))
+            _ = body.withCString {
+                sqlite3_bind_text(statement, 2, $0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+            }
+            try #require(sqlite3_step(statement) == SQLITE_DONE)
+        }
+        #endif
 
         func validateCoverage(home: URL) throws {
             let request = CodexCombinedCostRequest(
