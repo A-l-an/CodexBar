@@ -6,6 +6,7 @@ struct SpendDashboardModel: Equatable, Sendable {
     enum SourceKind: String, Sendable, Equatable {
         case native
         case openCodex
+        case localHistory
     }
 
     static let openCodexSourceID = "opencodex"
@@ -16,6 +17,7 @@ struct SpendDashboardModel: Equatable, Sendable {
         let modelProviderName: String
         let snapshot: CostUsageTokenSnapshot
         let tokenActivityCache: CostUsageTokenActivityCache?
+        let accounting: PiSnapshotAccounting?
 
         init(
             id: String? = nil,
@@ -24,7 +26,8 @@ struct SpendDashboardModel: Equatable, Sendable {
             modelProviderName: String? = nil,
             snapshot: CostUsageTokenSnapshot,
             tokenActivityCache: CostUsageTokenActivityCache? = nil,
-            sourceKind: SpendDashboardModel.SourceKind = .native)
+            sourceKind: SpendDashboardModel.SourceKind = .native,
+            accounting: PiSnapshotAccounting? = nil)
         {
             self.id = id ?? provider.rawValue
             self.provider = provider
@@ -33,6 +36,7 @@ struct SpendDashboardModel: Equatable, Sendable {
             self.snapshot = snapshot
             self.tokenActivityCache = tokenActivityCache
             self.sourceKind = sourceKind
+            self.accounting = accounting
         }
 
         let sourceKind: SpendDashboardModel.SourceKind
@@ -222,6 +226,7 @@ struct SpendDashboardModel: Equatable, Sendable {
         let coveredDayCount: Int
         let chartDomain: ClosedRange<Date>
         let modelHistoryCompleteness: ModelHistoryCompleteness
+        let incompleteModelProviders: Set<UsageProvider>
         let tokenMix: CostUsageTokenMix
         let coverageAccumulator: CostUsageCoverageAccumulator
         var coverage: CostUsageCoverageCounts {
@@ -259,6 +264,7 @@ struct SpendDashboardModel: Equatable, Sendable {
             coveredDayCount: Int,
             chartDomain: ClosedRange<Date>,
             modelHistoryCompleteness: ModelHistoryCompleteness,
+            incompleteModelProviders: Set<UsageProvider> = [],
             tokenMix: CostUsageTokenMix = CostUsageTokenMix(),
             coverageAccumulator: CostUsageCoverageAccumulator = CostUsageCoverageAccumulator(),
             provenance: CostProvenance = .unknown,
@@ -280,6 +286,7 @@ struct SpendDashboardModel: Equatable, Sendable {
             self.coveredDayCount = coveredDayCount
             self.chartDomain = chartDomain
             self.modelHistoryCompleteness = modelHistoryCompleteness
+            self.incompleteModelProviders = incompleteModelProviders
             self.tokenMix = tokenMix
             self.coverageAccumulator = coverageAccumulator
             self.provenance = provenance
@@ -515,14 +522,26 @@ struct SpendDashboardModel: Equatable, Sendable {
         }
         let providers = Self.providerRows(summaries)
         let scopedSummaries = Self.summaries(summaries, matching: selectedDay)
-        let modelSummaries = scopedSummaries.filter { summary in
+        var modelSummaries: [InputSummary] = []
+        var incompleteModelProviders = Set<UsageProvider>()
+        for summary in scopedSummaries {
             let summaryModelHistory = Self.modelSummary(summaries: [summary])
-            if summary.totalCost != nil {
-                return summaryModelHistory.completeness == .complete || summary.incompleteRequestCount > 0 ||
+            let retainsModelHistory = if summary.totalCost != nil {
+                summaryModelHistory.completeness == .complete || summary.incompleteRequestCount > 0 ||
                     Self.canRetainPartialCodexModelHistory(summary)
+            } else {
+                Self.canRetainUnpricedModelHistory(summary) ||
+                    (summary.incompleteRequestCount > 0 && summary.entries
+                        .allSatisfy(\.entry.hasOnlyIncompleteRequests))
             }
-            return Self.canRetainUnpricedModelHistory(summary) ||
-                (summary.incompleteRequestCount > 0 && summary.entries.allSatisfy(\.entry.hasOnlyIncompleteRequests))
+            if retainsModelHistory {
+                modelSummaries.append(summary)
+            }
+            if summaryModelHistory.completeness == .incomplete || !retainsModelHistory || summary
+                .incompleteRequestCount > 0
+            {
+                incompleteModelProviders.insert(summary.input.provider)
+            }
         }
         // Unpriced named models can still list. Incomplete priced coverage stays hidden so a
         // partial list cannot look like a lower-bound total.
@@ -590,6 +609,7 @@ struct SpendDashboardModel: Equatable, Sendable {
             coveredDayCount: Self.commonCoverageDayCount(summaries: summaries, calendar: calendar),
             chartDomain: Self.chartDomain(bounds: bounds, calendar: calendar),
             modelHistoryCompleteness: modelHistoryCompleteness,
+            incompleteModelProviders: incompleteModelProviders,
             tokenMix: tokenMix,
             coverageAccumulator: coverage,
             provenance: provenance,

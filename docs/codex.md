@@ -197,6 +197,7 @@ and stable account numbers distinguish rows while usable workspace labels remain
 4) Last imported browser cookie email (cached).
 
 ## Credits
+- Background credits refreshes coalesce for the same account. Cancelling and replacing a refresh keeps the replacement tracked until it finishes; retired credits and history-backfill tasks cannot clear newer work.
 - Web dashboard fills credits only when OAuth/CLI do not provide them. Account-matched extra usage reconciles monthly caps and purchased balances separately; the optional credits setting controls visibility.
 - When usage reports limited workspace credits without an amount, an optional read of the account's `remaining_balance` endpoint uses the same OAuth or browser session. Access depends on workspace permissions. Failure preserves ordinary usage and monthly-limit data.
 - Workspace balances attach and persist only when the dashboard response account ID matches the selected account. Same-email workspace mismatches and old workspace caches without an account ID are rejected by both the app and CLI.
@@ -258,8 +259,10 @@ the local result and returns a nonzero exit code. See [CLI host reporting](cli.m
     when pi-compatible usage joins the aggregate because the native-only rows would not reconcile with the merged total.
 - Cache:
   - Native session store: `~/Library/Caches/CodexBar/cost-usage/cost-usage.sqlite`
-  - pi-compatible session cache: `~/Library/Caches/CodexBar/cost-usage/pi-sessions-v8.json`
+  - pi-compatible session cache: `~/Library/Caches/CodexBar/cost-usage/pi-sessions-v9.json`
     is replaced atomically on macOS and Linux, retaining complete cached scan state across refreshes.
+    Version 8 rebuilds once from transcripts to establish source scope and completeness. Enabling the standalone
+    [Pi provider](pi.md) keeps Codex history native-only in combined views and completed catch-up publication.
   - Catch-up status reads progress metadata without loading historical usage JSON or replay bodies. Cached token
     activity reads scoped daily aggregates without decoding individual usage events, retaining account, time zone,
     coverage, and incomplete-scan checks. Cached reports
@@ -280,6 +283,9 @@ the local result and returns a nonzero exit code. See [CLI host reporting](cli.m
     External writes invalidate cached data; database replacement or incompatible metadata reopens the reader through
     existing validation on its next access. Every read still reconciles file identities, and detailed report history
     remains transient. Scanner and writer connections keep separate ownership.
+  - Workspaces cache reads decode stored usage rows as SQLite yields them, avoiding a second retained copy of the
+    history as encoded payloads. Metadata and rows share one read transaction; filesystem reconciliation runs after
+    it closes. Row order, pricing, malformed-row fallback, and incomplete coverage keep their existing behavior.
   - Saved day/model aggregates group each file's usage rows in one pass per aggregate build. Packed token totals,
     authoritative costs (including zero), and standard/priority estimation buckets retain their existing meanings.
   - Excess cached request rows trigger bounded revalidation of readable, unchanged session files. Ordered source

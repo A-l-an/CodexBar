@@ -625,6 +625,9 @@ extension SettingsStore {
         let mergedOverviewLayoutRaw = userDefaults.string(forKey: "mergedOverviewLayout")
             ?? MergedOverviewLayout.detailed.rawValue
         let switcherShowsIcons = userDefaults.object(forKey: "switcherShowsIcons") as? Bool ?? true
+        let mergeIconsStacked = userDefaults.object(forKey: "mergeIconsStacked") as? Bool ?? false
+        let mergeIconStackedTopProviderRaw = userDefaults.string(forKey: "mergeIconStackedTopProvider")
+        let mergeIconStackedBottomProviderRaw = userDefaults.string(forKey: "mergeIconStackedBottomProvider")
         let mergedMenuLastSelectedWasOverview = userDefaults.object(
             forKey: "mergedMenuLastSelectedWasOverview") as? Bool ?? false
         let mergedOverviewSelectedProvidersRaw = userDefaults.array(
@@ -729,6 +732,9 @@ extension SettingsStore {
             mergeIcons: mergeIcons,
             mergedOverviewLayoutRaw: mergedOverviewLayoutRaw,
             switcherShowsIcons: switcherShowsIcons,
+            mergeIconsStacked: mergeIconsStacked,
+            mergeIconStackedTopProviderRaw: mergeIconStackedTopProviderRaw,
+            mergeIconStackedBottomProviderRaw: mergeIconStackedBottomProviderRaw,
             mergedMenuLastSelectedWasOverview: mergedMenuLastSelectedWasOverview,
             mergedOverviewSelectedProvidersRaw: mergedOverviewSelectedProvidersRaw,
             selectedMenuProviderRaw: selectedMenuProviderRaw,
@@ -1081,11 +1087,19 @@ extension SettingsStore {
     }
 
     func providerEnablementRevision(for provider: UsageProvider) -> UInt64 {
-        self.providerEnablementRevisions[provider.instanceID, default: 0]
+        self.providerEnablementRevision(forInstanceID: provider.instanceID)
     }
 
     func providerConfigRevision(for provider: UsageProvider) -> UInt64 {
-        self.providerConfigRevisions[provider.instanceID, default: 0]
+        self.providerConfigRevision(forInstanceID: provider.instanceID)
+    }
+
+    func providerEnablementRevision(forInstanceID instanceID: ProviderInstanceID) -> UInt64 {
+        self.providerEnablementRevisions[instanceID, default: 0]
+    }
+
+    func providerConfigRevision(forInstanceID instanceID: ProviderInstanceID) -> UInt64 {
+        self.providerConfigRevisions[instanceID, default: 0]
     }
 
     func orderedProviders() -> [ProviderInstanceID] {
