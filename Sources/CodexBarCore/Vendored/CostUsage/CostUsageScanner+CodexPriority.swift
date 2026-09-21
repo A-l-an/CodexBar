@@ -6,6 +6,8 @@ import Crypto
 import Foundation
 #if canImport(SQLite3)
 import SQLite3
+#elseif canImport(CSQLite3)
+import CSQLite3
 #endif
 
 extension CostUsageScanner {
@@ -60,7 +62,7 @@ extension CostUsageScanner {
         _ cursor: CodexPriorityTurnsPersistedCursor?,
         databaseURL: URL)
     {
-        #if canImport(SQLite3)
+        #if canImport(SQLite3) || canImport(CSQLite3)
         guard let cursor, cursor.databasePath == databaseURL.path else { return }
         let path = databaseURL.path
         let needsSeed = self.codexPriorityTurnsMemo.withLock { $0[path] == nil }
@@ -75,7 +77,7 @@ extension CostUsageScanner {
 
     /// Drops process-local accumulated state so the next scan rebuilds from row 0.
     static func dropCodexPriorityTurnsMemo(databaseURL: URL) {
-        #if canImport(SQLite3)
+        #if canImport(SQLite3) || canImport(CSQLite3)
         self.codexPriorityTurnsMemo.withLock { memo in
             _ = memo.removeValue(forKey: databaseURL.path)
         }
@@ -85,7 +87,7 @@ extension CostUsageScanner {
     /// Snapshot of the live process memo for `databaseURL`. Nil when this process has not
     /// opened the DB.
     static func codexPriorityTurnsPersistedCursor(databaseURL: URL) -> CodexPriorityTurnsPersistedCursor? {
-        #if canImport(SQLite3)
+        #if canImport(SQLite3) || canImport(CSQLite3)
         return self.codexPriorityTurnsMemo.withLock { memo in
             memo[databaseURL.path].map {
                 self.persistedCursor(from: $0, databasePath: databaseURL.path)
@@ -96,7 +98,7 @@ extension CostUsageScanner {
         #endif
     }
 
-    #if canImport(SQLite3)
+    #if canImport(SQLite3) || canImport(CSQLite3)
     /// Accumulated priority-turn state for one trace database. A durable cursor is persisted
     /// with Codex cache metadata and reseeded into this process-local memo after relaunch.
     /// The `logs` table uses an `INTEGER PRIMARY KEY AUTOINCREMENT` id, so rowids are
@@ -322,7 +324,7 @@ extension CostUsageScanner {
             return CodexPriorityTurnsResolution(turns: [:], validationPending: expectExistingDatabase)
         }
 
-        #if canImport(SQLite3)
+        #if canImport(SQLite3) || canImport(CSQLite3)
         if let untilDayKey, untilDayKey < CostUsageDayRange.dayKey(from: Date()) {
             return self.boundedCodexPriorityTurns(
                 databaseURL: url,
@@ -454,7 +456,7 @@ extension CostUsageScanner {
         #endif
     }
 
-    #if canImport(SQLite3)
+    #if canImport(SQLite3) || canImport(CSQLite3)
     private static func filteredResolvedCodexPriorityTurns(
         _ state: CodexPriorityTurnsMemoState,
         sinceDayKey: String?,
@@ -1116,7 +1118,7 @@ extension CostUsageScanner {
         return value.isEmpty ? nil : String(value)
     }
 
-    #if canImport(SQLite3)
+    #if canImport(SQLite3) || canImport(CSQLite3)
     private static func text(stmt: OpaquePointer?, index: Int32) -> String? {
         guard sqlite3_column_type(stmt, index) != SQLITE_NULL,
               let cString = sqlite3_column_text(stmt, index)
