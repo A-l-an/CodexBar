@@ -221,6 +221,17 @@ For a manual comparison with another development machine, run `codexbar cost --p
 Both hosts scan their own native Codex logs once and return separate summaries, retaining their own day boundaries,
 pricing provenance, missing values, and incomplete-request counts. Only bounded totals cross SSH. A remote error keeps
 the local result and returns a nonzero exit code. See [CLI host reporting](cli.md) for the versioned summary contract.
+
+In the app, choose **SSH Cost Report…** from the Codex menu, enter an existing SSH alias or `user@host`, and click
+**Refresh**. The host must already support noninteractive SSH with a trusted host key and a CodexBar CLI supporting
+native `--summary-only` reports. The window shows Today and the last 30 days for each machine, with source snapshot
+timestamps, time zones, and incomplete-history or pricing warnings. Amounts are USD API-equivalent estimates, not bills.
+This Mac means ambient native Codex history, independently of the selected managed account and without Pi/OMP sessions.
+Opening the window does not scan or connect. A failed source leaves the other source's successful report visible.
+Cancel or close the window to cancel the query; the host field remains locked until the query drains.
+The host is remembered only while the app is running and is masked by **Hide Personal Info**.
+These reports do not add histories together or change menu totals, charts, or normal refresh behavior.
+
 - Menu source selection:
   - By default, a selected managed account keeps its own `CODEX_HOME` session history.
   - **Local session cost estimates** is a Codex-only opt-in that instead scans this Mac's ambient `$CODEX_HOME`
