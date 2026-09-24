@@ -726,6 +726,14 @@ struct ProviderSettingsDescriptorTests {
     }
 
     @Test
+    func `aixy exposes key and optional gateway fields`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-aixy")
+        let fields = AixyProviderImplementation().settingsFields(context: fixture.settingsContext(provider: .aixy))
+        #expect(fields.map(\.id) == ["aixy-api-key", "aixy-base-url"])
+        #expect(fields.map(\.title) == ["API key", "Base URL"])
+    }
+
+    @Test
     func `venice exposes usage source picker routing to web`() throws {
         let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-venice")
         let context = fixture.settingsContext(provider: .venice)

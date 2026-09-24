@@ -155,8 +155,8 @@ struct ProviderArchitectureGatekeeperTests {
             Self.hash(descriptor.branding.burnDownWidgetColor, into: &burnDownFingerprint)
         }
 
-        #expect(widgetFingerprint == 11_933_113_960_923_567_782)
-        #expect(burnDownFingerprint == 12_793_839_836_929_890_861)
+        #expect(widgetFingerprint == 14_952_895_750_939_930_899)
+        #expect(burnDownFingerprint == 11_382_798_689_390_459_366)
     }
 
     @Test
@@ -168,8 +168,8 @@ struct ProviderArchitectureGatekeeperTests {
             try Self.hash(#require(descriptor.metadata.debugLogUnavailableMessage?.utf8), into: &fingerprint)
         }
 
-        #expect(descriptors.count == 39)
-        #expect(fingerprint == 16_299_585_921_752_048_204)
+        #expect(descriptors.count == 40)
+        #expect(fingerprint == 7_407_379_265_387_303_386)
     }
 
     @Test
@@ -200,7 +200,7 @@ struct ProviderArchitectureGatekeeperTests {
         #expect(Set(descriptors.filter(\.metadata.usesDetailBackedWindow).map(\.id)) == [
             .perplexity,
             .warp, .kilo, .mistral, .deepseek, .deepinfra, .qoder, .chutes, .longcat, .litellm, .bifrost, .manus,
-            .mimo, .neuralwatt, .abacus, .v0, .llmman,
+            .mimo, .neuralwatt, .abacus, .v0, .llmman, .aixy,
         ])
         // Antigravity charts calendar days for the same reason Codex does: a day with no local row
         // is still a real day in the window.

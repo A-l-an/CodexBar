@@ -18,6 +18,7 @@ struct ProviderPluginParityTests {
             (.llmproxy, "LLM_PROXY_API_KEY"),
             (.litellm, "LITELLM_API_KEY"),
             (.llmman, "LLMMAN_API_KEY"),
+            (.aixy, "AIXY_API_KEY"),
             (.neuralwatt, "NEURALWATT_API_KEY"),
             (.sub2api, "SUB2API_API_KEY"),
             (.synthetic, "SYNTHETIC_API_KEY"),

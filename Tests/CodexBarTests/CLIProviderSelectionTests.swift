@@ -25,6 +25,7 @@ struct CLIProviderSelectionTests {
             "|atlascloud|",
             "|vercel|",
             "|llmman|",
+            "|aixy|",
             "|both|",
             "|all]",
         ]

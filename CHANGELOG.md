@@ -2,6 +2,10 @@
 
 ## 0.66.1 — Unreleased
 
+### Added
+
+- Aixy: track key-scoped usage and applicable personal/shared budgets, including idle keys with zero spend (#3958). Thanks @oscarcpozas!
+
 ## 0.66.0 — 2026-09-24
 
 ### Highlights

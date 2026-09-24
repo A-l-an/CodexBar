@@ -123,3 +123,4 @@ Remaining cookie rows need individual parity audits for their provider-specific 
 | atlascloud | `cut-over` | QuickJS + JavaScriptCore | Public billing API bearer GET for the account-wide available USD balance; no invented quota or Coding Plan allowance. |
 | vercel | `cut-over` | QuickJS + JavaScriptCore | Public credits API bearer GET for team USD balance and lifetime spend; no CLI discovery or metered reporting. |
 | llmman | `cut-over` | QuickJS + JavaScriptCore | Configured loopback/private-network daemon origin with an optional bearer key; `/llmman/node` memory and model summaries, best-effort version. |
+| aixy | `cut-over` | QuickJS + JavaScriptCore | Plugin-first key-scoped usage and overlapping budgets via bearer GET; both engines preserve reservations and zero-versus-unavailable spend. |

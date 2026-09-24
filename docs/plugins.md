@@ -394,3 +394,5 @@ Swift supplies registration and the shared settings surface.
 
 [Zed](zed.md) uses its bundled script for editor API and opt-in browser billing requests. Swift retains editor settings
 and Keychain credential discovery; browser mode uses a declared `zed.dev` cookie session and never reads editor credentials.
+
+Aixy is a bundled plugin-first provider: its TypeScript owns key-scoped usage and budget mapping, while the host validates its configured gateway origin and supplies the API key. See [Aixy](aixy.md).

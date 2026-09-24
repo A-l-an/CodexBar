@@ -226,6 +226,7 @@ struct SettingsStoreAdditionalTests {
             .nous: [.automatic, .primary],
             .coderabbit: [.automatic],
             .replicate: [.automatic],
+            .aixy: [.automatic],
             .typesafe: [.automatic],
             .hyper: [.automatic],
             .atlascloud: [.automatic],
