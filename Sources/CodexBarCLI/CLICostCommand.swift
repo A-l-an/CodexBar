@@ -35,7 +35,9 @@ extension CodexBarCLI {
         let includePiSessions = Self.decodeCostIncludePiSessions(from: values)
         let useColor = Self.shouldUseColor(noColor: values.flags.contains("noColor"), format: format)
         let historyDays = Self.decodeCostHistoryDays(from: values)
-        if values.options["remote"] != nil || values.flags.contains("summaryOnly") {
+        if values.options["remote"] != nil || values.flags.contains("summaryOnly") || Self
+            .isCodexDailySummaryRequest(values)
+        {
             await Self.runCodexHostCosts(
                 values,
                 providers: providers,
@@ -1002,6 +1004,12 @@ struct CostOptions: CommanderParsable {
 
     @Flag(name: .long("summary-only"), help: "Versioned native Codex JSON totals without account or session details")
     var summaryOnly: Bool = false
+
+    @Flag(name: .long("daily-summary"), help: "Versioned native Codex JSON daily totals without identifying details")
+    var dailySummary: Bool = false
+
+    @Option(name: .long("bucket-time-zone"), help: "Day-bucket time zone, required with --daily-summary")
+    var bucketTimeZone: String?
 }
 
 struct CostPayload: Encodable, Sendable {

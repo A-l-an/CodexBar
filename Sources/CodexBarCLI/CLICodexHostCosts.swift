@@ -10,6 +10,10 @@ extension CodexBarCLI {
         historyDays days: Int,
         output: CLIOutputPreferences) async
     {
+        if isCodexDailySummaryRequest(values) {
+            await runCodexDailySummary(values, historyDays: days, output: output)
+            return
+        }
         let remote = values.options["remote"]?.last
         let summaryOnly = values.flags.contains("summaryOnly")
         // Provider-specific by design: this versioned transport contains only native Codex history.
