@@ -224,6 +224,7 @@ struct SettingsStoreAdditionalTests {
             .mistral: [.automatic, .primary, .monthlyPlan],
             .openrouter: [.automatic, .primary],
             .nous: [.automatic, .primary],
+            .raycast: [.automatic, .primary],
             .coderabbit: [.automatic],
             .replicate: [.automatic],
             .aixy: [.automatic],

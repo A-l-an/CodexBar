@@ -79,6 +79,7 @@ extension ProviderInstanceID {
     public static let coderabbit = UsageProvider.coderabbit.instanceID
     public static let replicate = UsageProvider.replicate.instanceID
     public static let huggingface = UsageProvider.huggingface.instanceID
+    public static let raycast = UsageProvider.raycast.instanceID
     public static let pi = UsageProvider.pi.instanceID
     public static let v0 = UsageProvider.v0.instanceID
     public static let typesafe = UsageProvider.typesafe.instanceID

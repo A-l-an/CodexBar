@@ -4,6 +4,8 @@
 
 ### Added
 
+- Raycast: show monthly AI credits and renewal through a bundled plugin, with Chrome/manual cookies and expired-session recovery (#3960). Thanks @raulgg!
+
 - Aixy: track key-scoped usage and applicable personal/shared budgets, including idle keys with zero spend (#3958). Thanks @oscarcpozas!
 
 ## 0.66.0 — 2026-09-24

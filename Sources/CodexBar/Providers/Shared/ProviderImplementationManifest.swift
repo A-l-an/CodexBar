@@ -81,6 +81,7 @@ enum ProviderImplementationManifest {
         CodeRabbitProviderImplementation(),
         ReplicateProviderImplementation(),
         HuggingFaceProviderImplementation(),
+        RaycastProviderImplementation(),
         PiProviderImplementation(),
         V0ProviderImplementation(),
         TypeSafeProviderImplementation(),

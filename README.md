@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-6e5aff?style=flat-square)](LICENSE)
 [![Site](https://img.shields.io/badge/site-codexbar.app-16d3b4?style=flat-square)](https://codexbar.app)
 
-<a href="https://codexbar.app"><img src="docs/social.png?v=2722bcbfd92dd8cb" alt="CodexBar — every AI coding limit in your menu bar. 85 providers." width="100%" /></a>
+<a href="https://codexbar.app"><img src="docs/social.png?v=7fdbdb78d2d58bae" alt="CodexBar — every AI coding limit in your menu bar. 86 providers." width="100%" /></a>
 
 Tiny macOS 14+ menu bar app that keeps **AI coding-provider limits visible** and shows when each window resets. Codex, OpenAI, Claude, Cursor, Gemini, Copilot, Grok, GroqCloud, ElevenLabs, Deepgram, z.ai, MiniMax, Kiro, Zed, Vertex AI, Augment, OpenRouter, LiteLLM, LLM Proxy, Codebuff, Command Code, ClinePass, AWS Bedrock, and many newer coding providers. One status item per provider, or Merge Icons mode with a provider switcher. No Dock icon, minimal UI, dynamic bar icons.
 
@@ -170,6 +170,7 @@ See [CLI configuration](docs/cli-configuration.md) for the full flow.
 - [CodeRabbit](docs/coderabbit.md) — Local CLI usage report for review counts, billing state, and period resets.
 - [Replicate](docs/replicate.md) — Browser or manual cookies for monthly spend and optional prepaid credits.
 - [Hugging Face](docs/huggingface.md) — Access token for Inference Providers charges and optional ZeroGPU quota.
+- [Raycast](docs/raycast.md) — Chrome or manual website session for monthly AI credits and renewal.
 - [Pi](docs/pi.md) — Local Pi/OMP transcripts for token history and API-rate cost estimates.
 - [v0](docs/v0.md) — Platform API key for billing and on-demand balances, plus rate limits.
 - [TypeSafe](docs/typesafe.md) — Chrome or manual console cookies for billing spend, balance, and credit expirations.

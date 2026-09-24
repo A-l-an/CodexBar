@@ -95,6 +95,7 @@ public enum UsageProvider: String, CaseIterable, Sendable, Codable {
     case coderabbit
     case replicate
     case huggingface
+    case raycast
     case pi
     case v0
     case typesafe

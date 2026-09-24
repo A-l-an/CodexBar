@@ -8,7 +8,7 @@ read_when:
 
 # Providers
 
-CodexBar currently registers 85 provider IDs. Some companies expose multiple surfaces, such as Codex vs OpenAI API or
+CodexBar currently registers 86 provider IDs. Some companies expose multiple surfaces, such as Codex vs OpenAI API or
 OpenCode vs OpenCode Go, because the auth source and quota shape differ.
 
 ## Fetch strategies (current)
@@ -99,6 +99,7 @@ complete when the available scan window covers fewer days.
 | [Replicate](replicate.md) | Native Chrome cookie candidates or a manual header → bundled plugin for monthly spend and optional prepaid credits (`web`). |
 | [TypeSafe](typesafe.md) | Chrome cookies or a manual header → bundled plugin for billing spend and credit balance (`web`). |
 | [Hugging Face](huggingface.md) | Access token from settings/env/CLI → bundled plugin for Inference Providers charges, optional ZeroGPU quota, and token-scoped identity (`api`). |
+| [Raycast](raycast.md) | Chrome cookies for `www.raycast.com` or a manual Cookie header → bundled plugin for monthly AI credits (`web`). |
 | [v0](v0.md) | API key and optional project scope from settings/env → bundled plugin for Platform API billing and rate limits (`api`). |
 | [DevPass](devpass.md) | Regular LLM Gateway API key → bundled plugin for plan credits, premium weekly usage, and all-time key spend (`api`). |
 | [Atlas Cloud](atlascloud.md) | Standard API key → account-wide available USD balance (`api`). |

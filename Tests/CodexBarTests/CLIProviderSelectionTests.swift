@@ -26,6 +26,7 @@ struct CLIProviderSelectionTests {
             "|vercel|",
             "|llmman|",
             "|aixy|",
+            "|raycast|",
             "|both|",
             "|all]",
         ]
