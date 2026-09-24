@@ -1,3 +1,12 @@
+/** A secret header bound to one declared origin; reject with its opaque ID to advance safely. */
+interface CodexBarCookieSession {
+  readonly id: string;
+  readonly header: string;
+  readonly source: string;
+  readonly origin: string;
+  readonly cachedAt?: number;
+}
+
 type CodexBarJSONPrimitive = boolean | number | string | null;
 type CodexBarJSONValue = CodexBarJSONPrimitive | CodexBarJSONValue[] | { [key: string]: CodexBarJSONValue };
 
@@ -115,8 +124,41 @@ interface CodexBarUsageSnapshot {
   details?: CodexBarDetailSection[] | null;
 }
 
+/** Result metadata is validated by the host; card and persistence require a descriptor-owned allowlist. */
+interface CodexBarFetchResult {
+  usage: CodexBarUsageSnapshot;
+  sourceLabel?: string;
+  card?: {
+    openAIAPIUsage: {
+      historyDays: number;
+      projectID?: string | null;
+      daily: Array<{
+        startTime: number;
+        endTime: number;
+        costUSD: number;
+        requests: number;
+        inputTokens: number;
+        cachedInputTokens: number;
+        outputTokens: number;
+        totalTokens: number;
+        lineItems: Array<{ name: string; costUSD: number }>;
+        models: Array<{
+          name: string;
+          requests: number;
+          inputTokens: number;
+          cachedInputTokens: number;
+          outputTokens: number;
+          totalTokens: number;
+        }>;
+      }>;
+    };
+  };
+  persist?: Record<string, string>;
+}
+
 interface CodexBarHTTPRequestOptions {
   headers?: Readonly<Record<string, string>>;
+  /** Hard deadline from transport start, 1–90 seconds (default 15); also bounded by the overall fetch deadline. */
   timeoutSeconds?: number;
   /** One native delayed retry for transient GET failures; POST is never retried. */
   retryPolicy?: "transientIdempotent";
@@ -181,7 +223,8 @@ interface CodexBarPluginContext {
   };
   readonly browser: {
     availability(domain: string): "available" | "off" | "manual";
-    rejectCookie(domain: string): void;
+    rejectCookie(domain: string, session?: CodexBarCookieSession): void;
+    sessions(domain: string, options?: { cachedOnly?: boolean }): AsyncIterable<CodexBarCookieSession>;
     cookieHeader(domain: string): Promise<string>;
   };
   readonly html: {
@@ -231,7 +274,9 @@ interface CodexBarProviderDefinition {
   /** Grants declared browser-cookie access or lets the plugin observe and classify non-2xx HTTP responses. */
   capabilities?: Array<"browser-cookies" | "http-status">;
   cookieDomains?: string[];
-  fetchUsage(ctx: CodexBarPluginContext): CodexBarUsageSnapshot | Promise<CodexBarUsageSnapshot>;
+  fetchUsage(
+    ctx: CodexBarPluginContext,
+  ): CodexBarUsageSnapshot | CodexBarFetchResult | Promise<CodexBarUsageSnapshot | CodexBarFetchResult>;
 }
 
 declare function defineProvider(definition: CodexBarProviderDefinition): void;
