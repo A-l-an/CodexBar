@@ -53,8 +53,12 @@ struct CLICodexDailySummaryProcessTests {
             arguments.removeAll { $0 == "--daily-summary" }
             arguments.append("--summary-only")
         }
-        let binary = Bundle(for: DailySummaryProcessBundle.self).bundleURL
-            .deletingLastPathComponent().appendingPathComponent("CodexBarCLI")
+        let bundleURL = Bundle(for: DailySummaryProcessBundle.self).bundleURL
+        #if os(Linux)
+        let binary = bundleURL.appendingPathComponent("CodexBarCLI")
+        #else
+        let binary = bundleURL.deletingLastPathComponent().appendingPathComponent("CodexBarCLI")
+        #endif
         let result = try await SubprocessRunner.run(
             binary: binary.path,
             arguments: arguments,
