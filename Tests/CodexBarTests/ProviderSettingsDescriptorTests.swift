@@ -737,6 +737,38 @@ struct ProviderSettingsDescriptorTests {
     }
 
     @Test
+    func `raycast manual cookie uses a single header field`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-raycast-cookie")
+        let context = fixture.settingsContext(provider: .raycast)
+        let implementation = RaycastProviderImplementation()
+        let pickers = implementation.settingsPickers(context: context)
+        #expect(pickers.contains(where: { $0.id == "raycast-cookie-source" }))
+        #expect(pickers.first?.options.contains(where: { $0.id == "off" }) == true)
+
+        fixture.settings.raycastCookieSource = .auto
+        let automaticHeader = try #require(
+            implementation.settingsFields(context: context).first { $0.id == "raycast-cookie-header" })
+        #expect(automaticHeader.isVisible?() == false)
+
+        fixture.settings.raycastCookieSource = .manual
+        let header = try #require(
+            implementation.settingsFields(context: context).first { $0.id == "raycast-cookie-header" })
+        #expect(header.isVisible?() ?? true)
+        #expect(header.title == "Cookie header")
+
+        let pane = ProvidersPane(settings: fixture.settings, store: fixture.store)
+        #expect(pane._test_tokenAccountDescriptor(for: .raycast) == nil)
+    }
+
+    @Test
+    func `aixy exposes key and optional gateway fields`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-aixy")
+        let fields = AixyProviderImplementation().settingsFields(context: fixture.settingsContext(provider: .aixy))
+        #expect(fields.map(\.id) == ["aixy-api-key", "aixy-base-url"])
+        #expect(fields.map(\.title) == ["API key", "Base URL"])
+    }
+
+    @Test
     func `venice exposes usage source picker routing to web`() throws {
         let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-venice")
         let context = fixture.settingsContext(provider: .venice)
