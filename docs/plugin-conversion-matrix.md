@@ -17,7 +17,9 @@ script. Settings-derived origins include the private-network HTTP policy for LLM
 
 `converted` means the bundled conversion is present behind `CODEXBAR_JS_PROVIDERS=1`. `cut-over` means the script is
 authoritative on its supported engines; each row states whether a Linux native core remains. Totals count only the
-69 audit rows below, excluding the separately listed plugin-first additions.
+69 audit rows below, excluding the separately listed plugin-first additions. The registry now contains 87 providers:
+69 audit rows, 9 additional plugin-first rows, and 9 providers not yet classified in this matrix (CodeRabbit,
+Hugging Face, IBM Bob, Muse, Nous, Pi, Replicate, TypeSafe, and v0).
 
 `needs-cookie-import` now means **additional cookie/session capability**, not absence of cookie import. The current
 broker imports declared domains, caches each domain separately (#3815), and offers policy-only
@@ -37,7 +39,10 @@ Remaining cookie rows need individual parity audits for their provider-specific 
 | `needs-files/subprocess/oauth-broker` | 20 |
 | `needs-pty/webview/native` | 8 |
 | `needs-host-extension` | 6 |
-| **Total** | **69** |
+| **Audit total** | **69** |
+| Additional plugin-first providers | 9 |
+| Registered providers not yet classified here | 9 |
+| **Registry total** | **87** |
 
 ## Matrix
 
@@ -124,3 +129,5 @@ Remaining cookie rows need individual parity audits for their provider-specific 
 | vercel | `cut-over` | QuickJS + JavaScriptCore | Public credits API bearer GET for team USD balance and lifetime spend; no CLI discovery or metered reporting. |
 | llmman | `cut-over` | QuickJS + JavaScriptCore | Configured loopback/private-network daemon origin with an optional bearer key; `/llmman/node` memory and model summaries, best-effort version. |
 | xkiro | `cut-over` | QuickJS + JavaScriptCore | Documented, unmetered bearer GET for daily free-token counters; separate from paid spend and wallet balances. |
+| aixy | `cut-over` | QuickJS + JavaScriptCore | Plugin-first key-scoped usage and overlapping budgets via bearer GET; both engines preserve reservations and zero-versus-unavailable spend. |
+| raycast | `cut-over` | QuickJS + JavaScriptCore | Declared-domain Chrome/manual cookies, host-over-parent cookie precedence, same-refresh session rejection, and website credit mapping; no native session strategy. |
