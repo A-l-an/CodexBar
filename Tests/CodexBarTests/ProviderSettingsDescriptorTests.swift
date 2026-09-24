@@ -8,6 +8,17 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct ProviderSettingsDescriptorTests {
+    @Test
+    func `xKiro keeps its API key in provider config`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-xkiro")
+        let fields = XKiroProviderImplementation()
+            .settingsFields(context: fixture.settingsContext(provider: .xkiro))
+        #expect(fields.map(\.id) == ["xkiro-api-key"])
+        #expect(fields.map(\.kind) == [.secure])
+        fields[0].binding.wrappedValue = "fixture-key"
+        #expect(fixture.settings.providerConfig(for: .xkiro)?.apiKey == "fixture-key")
+    }
+
     @Test(arguments: [UsageProvider.atlascloud, .vercel])
     func `balance providers keep API keys in their own config`(provider: UsageProvider) throws {
         let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-\(provider.rawValue)")

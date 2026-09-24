@@ -89,5 +89,6 @@ public enum ProviderManifest {
         AtlasCloudProviderDescriptor.descriptor,
         VercelProviderDescriptor.descriptor,
         LLMManProviderDescriptor.descriptor,
+        XKiroProviderDescriptor.descriptor,
     ]
 }
