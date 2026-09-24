@@ -89,5 +89,6 @@ enum ProviderImplementationManifest {
         AtlasCloudProviderImplementation(),
         VercelProviderImplementation(),
         LLMManProviderImplementation(),
+        XKiroProviderImplementation(),
     ]
 }

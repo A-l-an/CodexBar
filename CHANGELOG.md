@@ -2,6 +2,10 @@
 
 ## 0.66.1 — Unreleased
 
+### Added
+
+- xKiro: track the account's daily free-token allowance and midnight UTC reset through the documented, unmetered usage API, separately from paid balances (#3729).
+
 ### Fixed
 
 - Antigravity: preserve decoded local history as a marked lower bound when later databases exhaust the schema budget, while retaining hard scan limits (#3957). Thanks @Niclassslua!

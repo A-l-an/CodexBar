@@ -103,6 +103,7 @@ public enum UsageProvider: String, CaseIterable, Sendable, Codable {
     case atlascloud
     case vercel
     case llmman
+    case xkiro
 }
 
 // swiftformat:enable sortDeclarations
