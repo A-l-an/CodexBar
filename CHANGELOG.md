@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.65.1 — Unreleased
+## 0.66.0 — 2026-09-24
+
+### Highlights
+
+- Ten more providers run as bundled plugins (OpenAI, Fireworks, Perplexity, Qoder, Manus, T3 Chat, DeepInfra, ZenMux, Chutes, ai&), and Atlas Cloud, Vercel AI Gateway, DevPass, and llmman join as plugin-first providers — 84 providers total.
+- CLI config writes no longer delete user plugin settings and secrets (#3944), and menu bar layouts show balances for every balance provider (#3904).
+- Lower background cost: Codex and Claude history caches stop rewriting unchanged files, Cursor backs off geo-blocked requests, and stalled menu catch-up passes no longer loop.
 
 ### Added
 
@@ -8,43 +14,37 @@
 - Vercel AI Gateway: show team-wide USD balance and lifetime spend through the documented API-key endpoint (#2975). Thanks @pikant!
 - DevPass: track plan credits, premium weekly usage and resets, and API-key spending through the documented LLM Gateway API (#3433). Thanks @MichelKerkmeester!
 - llmman: show how much of a local `llmman serve` daemon's model memory its loaded models use, with loaded and stored model summaries and an optional API key (#3914). Thanks @ericcurtin!
+- iCloud Sync: let other Macs and their stale usage snapshots be removed from the Macs list, including duplicate records left after reinstalling (#3234).
+- Provider plugins: allow explicit HTTP deadlines up to 90 seconds while preserving request-start timing and overall fetch cancellation (#2784).
 
 ### Fixed
 
-- Grok: preserve team identity and local token history when a missing billing RPC method changes its error wording, using the JSON-RPC error code for fallback (related to #3716).
-- Codex: prefer the fresh CLI usage response's plan over the cached account plan after a subscription change (#3389).
-- Claude: preserve quota-threshold warnings across repeated CLI account-identity gaps instead of re-alerting on each refresh (#3450).
-- Codex: scale personal credit bars with the balance instead of filling the bar at 1,000 credits, while preserving reported monthly caps and workspace balances (#3912).
-- CLI: bound shell-discovery output to 1 MiB and reject incomplete captures so noisy startup scripts cannot cause runaway buffering or truncated PATH results (refs #1999).
-- Codex costs: discard refreshes queued behind a stalled or failed menu catch-up pass instead of immediately restarting it (#3316).
 - Provider plugins: preserve unrecognized plugin settings and secrets across app and CLI config writes, and discover installed plugins before CLI config loads (#3944). Thanks @lockhartheavyindustries!
-- iCloud Sync: let other Macs and their stale usage snapshots be removed from the Macs list, including duplicate records left after reinstalling (#3234).
-
+- Menu bar: resolve provider balances in stored layouts and show Doubao Agent Plan icon usage when Coding Plan lanes are absent (#3904, #3897, #3901, #3907, #3898, #3911). Thanks @vincent-peng, @mousebomb, and @harjothkhara!
+- Cost history: back off forbidden Cursor cost requests for six hours, honor timeout cooldowns without cached data, and preserve quota refreshes and manual recovery (#3910, #3918). Thanks @harjothkhara and @Sogl!
+- Codex costs: include local session history in Usage & Spend when CLI credentials are stored in the OS keyring instead of `auth.json` (#3922).
+- Codex costs: discard refreshes queued behind a stalled or failed menu catch-up pass instead of immediately restarting it (#3316).
+- Codex costs: avoid rewriting unchanged retained file state when another session or scan metadata changes, reducing local history disk writes (#3882).
+- Claude costs: skip identical cache and report-memo writes after rescans, reducing local history disk writes (#3882).
+- Codex: prefer the fresh CLI usage response's plan over the cached account plan after a subscription change (#3389).
+- Codex: scale personal credit bars with the balance instead of filling the bar at 1,000 credits, while preserving reported monthly caps and workspace balances (#3912).
+- Claude: preserve quota-threshold warnings across repeated CLI account-identity gaps instead of re-alerting on each refresh (#3450).
+- Claude widgets: refresh after claude-swap account updates and follow the active account without requiring account widgets, preserving quota ownership and measurement age (#3920, #3921). Thanks @aledeul!
+- Claude: document browser-session recovery and the explicit cookie-import retry when Claude works in Chrome but CodexBar cannot read the session (#3919). Thanks @PakAbhishek!
+- Grok: preserve team identity and local token history when a missing billing RPC method changes its error wording, using the JSON-RPC error code for fallback (related to #3716).
+- Alibaba Token Plan / Qwen Cloud: parse monthly quota windows, retain rolling windows alongside monthly usage, and read Personal/Solo monthly usage through the Bailian CLI's raw usage endpoint (#3903). Thanks @Josephur!
 - Command Code: size monthly usage from the grant reported with credits, keeping the row available when the optional subscription lookup fails (#3939). Thanks @enieuwy!
 - Kimi: import web access tokens from Chromium local storage for the selected region, preserving manual and saved-account credential isolation (#3923). Thanks @kaishin!
-- Manus and T3 Chat: use bundled providers on both engines, retry rejected Manus sessions before environment fallback, and retain T3 Chat’s captured browser headers and 60-second web timeout (#3933, #3934).
-- Provider plugins: allow explicit HTTP deadlines up to 90 seconds while preserving request-start timing and overall fetch cancellation (#2784).
-
-- Alibaba Token Plan / Qwen Cloud: parse monthly quota windows, retain rolling windows alongside monthly usage, and read Personal/Solo monthly usage through the Bailian CLI's raw usage endpoint (#3903). Thanks @Josephur!
-- Claude: document browser-session recovery and the explicit cookie-import retry when Claude works in Chrome but CodexBar cannot read the session (#3919). Thanks @PakAbhishek!
-- Perplexity and Qoder: use bundled providers on both JavaScript engines, retry rejected browser sessions safely, and keep Qoder China manual cookies bound to the China endpoint.
-- OpenAI and Fireworks: use bundled provider plugins while preserving OpenAI usage charts and project labels, and save discovered Fireworks accounts through guarded app/CLI settings updates with visible save-failure diagnostics.
-- Provider plugins: preserve browser-session iteration and candidate rejection when returning typed usage results (#3933, #3934).
-
-- Menu bar: resolve provider balances in stored layouts and show Doubao Agent Plan icon usage when Coding Plan lanes are absent (#3904, #3897, #3901, #3907, #3898, #3911). Thanks @vincent-peng, @mousebomb, and @harjothkhara!
 - MiniMax: discover browser session storage across the shared Chromium catalog, including Comet and Yandex (#3883).
-- Codex costs: include local session history in Usage & Spend when CLI credentials are stored in the OS keyring instead of `auth.json` (#3922).
-- Claude widgets: refresh after claude-swap account updates and follow the active account without requiring account widgets, preserving quota ownership and measurement age (#3920, #3921). Thanks @aledeul!
 - Ollama: explain empty Manual cookie configuration and offer a single action to use automatic cookies (#3891). Thanks @giovanninibarbosa!
-- DeepInfra: use the bundled provider plugin on both engines while preserving prepaid balances, monthly spend, suspension details, and billing-cycle limits.
-- ZenMux: use the bundled provider plugin on both engines while preserving rolling quotas, plan expiry, optional PAYG balances, and authentication errors.
-- Claude costs: skip identical cache and report-memo writes after rescans, reducing local history disk writes (#3882).
-- Codex costs: avoid rewriting unchanged retained file state when another session or scan metadata changes, reducing local history disk writes (#3882).
-- Website: refresh the social preview image for all 80 providers, include the newest integrations, and invalidate cached previews when the card changes.
 - Muse Code: check the CLI-owned Keychain item's access list before requesting its token, so refreshes fail promptly when access would require a prompt, and discover logins without reading secrets (#3916). Thanks @audreyt!
-- Cost history: back off forbidden Cursor cost requests for six hours, honor timeout cooldowns without cached data, and preserve quota refreshes and manual recovery (#3910, #3918). Thanks @harjothkhara and @Sogl!
-- Chutes: refresh subscription and pay-as-you-go quotas through the bundled plugin on both engines, preserving empty usage responses and best-effort quota details.
-- ai&: refresh 30-day spending through the bundled plugin on both engines, preserving decimal totals, partial pages, and empty windows without a guessed currency.
+- CLI: bound shell-discovery output to 1 MiB and reject incomplete captures so noisy startup scripts cannot cause runaway buffering or truncated PATH results (refs #1999).
+- Website: refresh the social preview image with the newest integrations and invalidate cached previews when the card changes.
+
+### Changed
+
+- Bundled provider plugins now power OpenAI, Fireworks, Perplexity, Qoder, Manus, T3 Chat, DeepInfra, ZenMux, Chutes, and ai& on both JavaScript engines, preserving each provider's usage charts, project labels, regional cookies, browser-session retries, balances, and quota details while deleting the native fetchers (#3933, #3934).
+- Provider plugins: preserve browser-session iteration and candidate rejection when returning typed usage results (#3933, #3934).
 
 ## 0.65.0 — 2026-09-22
 
