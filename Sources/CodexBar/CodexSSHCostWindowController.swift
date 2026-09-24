@@ -3,15 +3,47 @@ import CodexBarCore
 import Observation
 import SwiftUI
 
+struct CodexSSHCostReport: Sendable {
+    struct History: Sendable {
+        let dailySummary: CodexCostDailySummary
+        let snapshot: CostUsageTokenSnapshot
+        let summary: CodexCostSummary
+        let calendar: Calendar
+        let dateRange: ClosedRange<Date>
+
+        init(dailySummary: CodexCostDailySummary) throws {
+            let calendar = try CodexCostDailySummary.calendar(bucketTimeZone: dailySummary.bucketTimeZone)
+            let snapshot = try dailySummary.tokenSnapshot()
+            let today = calendar.startOfDay(for: dailySummary.updatedAt)
+            guard let start = calendar.date(byAdding: .day, value: -29, to: today),
+                  let end = calendar.date(byAdding: .day, value: 1, to: today)
+            else { throw RemoteCodexCostError.invalidReport }
+            self.dailySummary = dailySummary
+            self.snapshot = snapshot
+            self.summary = CodexCostSummary(snapshot: snapshot, calendar: calendar)
+            self.calendar = calendar
+            self.dateRange = start...end
+        }
+    }
+
+    let host: String
+    let source: String
+    let history: History?
+    let error: String?
+}
+
 /// One explicit query. This state never participates in the app's ordinary refresh or totals.
 @MainActor
 @Observable
 final class CodexSSHCostQuery {
-    typealias LocalLoader = @Sendable (Calendar) async throws -> CodexCostSummary
-    typealias RemoteLoader = @Sendable (String) async throws -> CodexCostSummary
+    typealias LocalLoader = @Sendable (Calendar) async throws -> CodexCostDailySummary
+    typealias RemoteLoader = @Sendable (String, Calendar) async throws -> CodexCostDailySummary
+
+    nonisolated static let remoteDailyUnavailable =
+        "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary."
 
     private(set) var host = ""
-    private(set) var reports: [CodexHostCostReport] = []
+    private(set) var reports: [CodexSSHCostReport] = []
     private(set) var isRunning = false
     private(set) var isCancelling = false
     private(set) var message: String?
@@ -28,10 +60,11 @@ final class CodexSSHCostQuery {
                 allowPricingRefresh: false,
                 refreshPricingInBackground: false,
                 includePiSessions: false)
-            return CodexCostSummary(snapshot: snapshot, calendar: calendar)
+            return try CodexCostDailySummary(snapshot: snapshot, calendar: calendar)
         },
-        remote: @escaping RemoteLoader = { host in
-            try await RemoteCodexCostFetcher().fetch(host: host, historyDays: 30)
+        remote: @escaping RemoteLoader = { host, calendar in
+            try await RemoteCodexCostFetcher().fetchDaily(
+                host: host, historyDays: 30, bucketTimeZone: calendar.timeZone.identifier)
         })
     {
         self.local = local
@@ -57,6 +90,7 @@ final class CodexSSHCostQuery {
 
     func refresh(calendar: Calendar) {
         guard self.task == nil else { return }
+        let calendar = try? CodexCostDailySummary.calendar(bucketTimeZone: calendar.timeZone.identifier)
         let host = self.host.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             try RemoteCodexCostFetcher.validateHost(host)
@@ -64,6 +98,7 @@ final class CodexSSHCostQuery {
             self.message = RemoteCodexCostError.invalidHost.localizedDescription
             return
         }
+        guard let calendar else { return }
         let local = self.local
         let remote = self.remote
         self.reports = []
@@ -78,14 +113,14 @@ final class CodexSSHCostQuery {
             }
             do {
                 try Task.checkCancellation()
-                let localReport = try await Self.readReport(host: "local", source: "local") {
+                let localReport = try await Self.readReport(host: "local", source: "local", calendar: calendar) {
                     try await local(calendar)
                 }
                 try Task.checkCancellation()
                 self.reports.append(localReport)
                 self.message = "Reading SSH host…"
-                let remoteReport = try await Self.readReport(host: host, source: "ssh") {
-                    try await remote(host)
+                let remoteReport = try await Self.readReport(host: host, source: "ssh", calendar: calendar) {
+                    try await remote(host, calendar)
                 }
                 try Task.checkCancellation()
                 self.reports.append(remoteReport)
@@ -116,21 +151,22 @@ final class CodexSSHCostQuery {
     private nonisolated static func readReport(
         host: String,
         source: String,
-        operation: @Sendable () async throws -> CodexCostSummary) async throws -> CodexHostCostReport
+        calendar: Calendar,
+        operation: @Sendable () async throws -> CodexCostDailySummary) async throws -> CodexSSHCostReport
     {
         do {
             let summary = try await operation()
             try Task.checkCancellation()
-            return .init(host: host, source: source, summary: summary)
+            try summary.validate(historyDays: 30, bucketTimeZone: calendar.timeZone.identifier)
+            return try .init(host: host, source: source, history: .init(dailySummary: summary), error: nil)
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             try Task.checkCancellation()
             let message = source == "local"
                 ? "Local Codex cost history is unavailable."
-                : ((error as? RemoteCodexCostError)?.localizedDescription
-                    ?? RemoteCodexCostError.unavailable.localizedDescription)
-            return .init(host: host, source: source, summary: nil, error: message)
+                : Self.remoteDailyUnavailable
+            return .init(host: host, source: source, history: nil, error: message)
         }
     }
 }
@@ -147,12 +183,12 @@ final class CodexSSHCostWindowController: NSWindowController, NSWindowDelegate {
     init(query: CodexSSHCostQuery, content: some View) {
         self.query = query
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 440),
+            contentRect: NSRect(x: 0, y: 0, width: 880, height: 660),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false)
         window.title = L("Codex SSH Cost Report")
-        window.minSize = NSSize(width: 640, height: 400)
+        window.minSize = NSSize(width: 800, height: 520)
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)

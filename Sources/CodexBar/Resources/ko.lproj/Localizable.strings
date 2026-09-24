@@ -1616,3 +1616,6 @@
 "Enter one SSH host alias or user@host." = "SSH 호스트 별칭 또는 user@host를 하나 입력하세요.";
 "The remote CLI returned an unsupported or invalid cost summary. Update CodexBar on that host." = "원격 CLI가 지원되지 않거나 유효하지 않은 비용 요약을 반환했습니다. 해당 호스트의 CodexBar를 업데이트하세요.";
 "Could not read remote costs. Check SSH and that the remote CodexBar CLI supports --summary-only." = "원격 비용을 읽을 수 없습니다. SSH를 확인하고 원격 CodexBar CLI가 --summary-only를 지원하는지 확인하세요.";
+
+"Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Codex 기본 기록을 사용합니다. SSH 호스트에 --daily-summary를 지원하는 CodexBar CLI가 필요합니다.";
+"Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "일별 비용을 읽을 수 없습니다. SSH를 확인하고 원격 CodexBar CLI를 --daily-summary 지원 버전으로 업데이트하세요.";

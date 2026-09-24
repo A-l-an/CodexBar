@@ -1648,3 +1648,6 @@
 "Enter one SSH host alias or user@host." = "Nhập một bí danh máy chủ SSH hoặc user@host.";
 "The remote CLI returned an unsupported or invalid cost summary. Update CodexBar on that host." = "CLI từ xa đã trả về bản tóm tắt chi phí không được hỗ trợ hoặc không hợp lệ. Hãy cập nhật CodexBar trên máy chủ đó.";
 "Could not read remote costs. Check SSH and that the remote CodexBar CLI supports --summary-only." = "Không thể đọc chi phí từ xa. Hãy kiểm tra SSH và đảm bảo CLI CodexBar từ xa hỗ trợ --summary-only.";
+
+"Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Sử dụng lịch sử gốc của Codex. Máy chủ SSH cần CodexBar CLI hỗ trợ --daily-summary.";
+"Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "Không thể đọc chi phí hằng ngày. Hãy kiểm tra SSH và cập nhật CodexBar CLI từ xa để hỗ trợ --daily-summary.";

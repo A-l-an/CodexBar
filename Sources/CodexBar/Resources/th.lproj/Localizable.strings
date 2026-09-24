@@ -1651,3 +1651,6 @@
 "Enter one SSH host alias or user@host." = "ป้อนชื่อแทนโฮสต์ SSH หรือ user@host เพียงหนึ่งรายการ";
 "The remote CLI returned an unsupported or invalid cost summary. Update CodexBar on that host." = "CLI ระยะไกลส่งสรุปค่าใช้จ่ายที่ไม่รองรับหรือไม่ถูกต้องกลับมา โปรดอัปเดต CodexBar บนโฮสต์นั้น";
 "Could not read remote costs. Check SSH and that the remote CodexBar CLI supports --summary-only." = "ไม่สามารถอ่านค่าใช้จ่ายระยะไกลได้ ตรวจสอบ SSH และตรวจสอบว่า CodexBar CLI ระยะไกลรองรับ --summary-only";
+
+"Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "ใช้ประวัติ Codex ดั้งเดิม โฮสต์ SSH ต้องมี CodexBar CLI ที่รองรับ --daily-summary";
+"Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "อ่านค่าใช้จ่ายรายวันไม่ได้ ตรวจสอบ SSH และอัปเดต CodexBar CLI บนเครื่องระยะไกลให้รองรับ --daily-summary";

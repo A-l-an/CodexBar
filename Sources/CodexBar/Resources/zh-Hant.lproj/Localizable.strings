@@ -1678,3 +1678,6 @@
 "Enter one SSH host alias or user@host." = "請輸入一個 SSH 主機別名或 user@host。";
 "The remote CLI returned an unsupported or invalid cost summary. Update CodexBar on that host." = "遠端 CLI 傳回的費用摘要無效或不受支援。請更新該主機上的 CodexBar。";
 "Could not read remote costs. Check SSH and that the remote CodexBar CLI supports --summary-only." = "無法讀取遠端費用。請檢查 SSH，並確認遠端 CodexBar CLI 支援 --summary-only。";
+
+"Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "使用原生 Codex 歷史記錄。SSH 主機上的 CodexBar CLI 需支援 --daily-summary。";
+"Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "無法讀取每日費用。請檢查 SSH，並更新遠端 CodexBar CLI，使其支援 --daily-summary。";

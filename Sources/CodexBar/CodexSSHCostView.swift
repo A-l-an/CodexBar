@@ -48,15 +48,19 @@ struct CodexSSHCostView: View {
                 .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("ssh-cost-refresh")
             }
-            Text(L("Uses native Codex history. The SSH host needs a compatible CodexBar CLI."))
+            Text(L("Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            ScrollView {
-                HStack(alignment: .top, spacing: 16) {
-                    self.reportCard(title: L("This Mac"), source: "local")
-                    self.reportCard(
-                        title: Self.hostTitle(self.query.host, hidden: self.hidePersonalInfo), source: "ssh")
+            GeometryReader { geometry in
+                ScrollView {
+                    HStack(alignment: .top, spacing: 16) {
+                        self.reportCard(title: L("This Mac"), source: "local", width: (geometry.size.width - 16) / 2)
+                        self.reportCard(
+                            title: Self.hostTitle(self.query.host, hidden: self.hidePersonalInfo),
+                            source: "ssh",
+                            width: (geometry.size.width - 16) / 2)
+                    }
                 }
             }
             HStack {
@@ -76,17 +80,30 @@ struct CodexSSHCostView: View {
         .onExitCommand { self.query.cancel() }
     }
 
-    private func reportCard(title: String, source: String) -> some View {
+    private func reportCard(title: String, source: String, width: CGFloat) -> some View {
         let report = self.query.reports.first { $0.source == source }
         return GroupBox {
             VStack(alignment: .leading, spacing: 10) {
-                if let summary = report?.summary {
+                if let history = report?.history {
+                    let summary = history.summary
                     self.windowLine(L("Today"), summary.today)
                     self.windowLine(L("Last 30 days"), summary.history)
+                    CostHistoryChartMenuView(
+                        provider: .codex,
+                        daily: history.snapshot.daily,
+                        totalCostUSD: history.snapshot.last30DaysCostUSD,
+                        costLabelFormatter: { Self.amountText($0) },
+                        historyCoverageIsEstablished: history.snapshot.historyCoverageIsEstablished,
+                        historyIsRefreshing: false,
+                        calendar: history.calendar,
+                        dateRange: history.dateRange,
+                        hidePersonalInfo: self.hidePersonalInfo,
+                        width: max(0, width - 32))
+                        .accessibilityIdentifier("ssh-cost-chart-\(source)")
                     Text(L("Snapshot updated: %@", summary.updatedAt.ISO8601Format()))
                         .monospacedDigit()
                     Text(L("Day boundaries: %@", summary.bucketTimeZone))
-                    ForEach(Self.coverageHints(summary), id: \.self) { hint in
+                    ForEach(Self.coverageHints(history), id: \.self) { hint in
                         Text(hint).foregroundStyle(.secondary)
                     }
                 } else if let error = report?.error {
@@ -104,7 +121,7 @@ struct CodexSSHCostView: View {
         } label: {
             Text(title).lineLimit(1).truncationMode(.middle)
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(width: width, alignment: .topLeading)
     }
 
     private func windowLine(_ label: String, _ window: CodexHostCostWindow) -> some View {
@@ -128,9 +145,12 @@ struct CodexSSHCostView: View {
         return hidden || trimmed.isEmpty ? L("SSH host") : trimmed
     }
 
-    static func coverageHints(_ summary: CodexCostSummary) -> [String] {
+    static func coverageHints(_ history: CodexSSHCostReport.History) -> [String] {
+        let summary = history.summary
         var hints: [String] = []
-        if !summary.historyCoverageIsEstablished { hints.append(L("Partial history; scan is incomplete.")) }
+        if !summary.historyCoverageIsEstablished || history.dailySummary.historyScanIsPartial {
+            hints.append(L("Partial history; scan is incomplete."))
+        }
         if [summary.today, summary.history].contains(where: { $0.coverage.unpriced > 0 || $0.coverage.unmetered > 0 }) {
             hints.append(L("Some usage has no known price."))
         }

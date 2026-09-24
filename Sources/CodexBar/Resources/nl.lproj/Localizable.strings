@@ -1646,3 +1646,6 @@
 "Enter one SSH host alias or user@host." = "Voer één SSH-hostalias of user@host in.";
 "The remote CLI returned an unsupported or invalid cost summary. Update CodexBar on that host." = "De externe CLI heeft een niet-ondersteunde of ongeldige kostensamenvatting teruggestuurd. Werk CodexBar op die host bij.";
 "Could not read remote costs. Check SSH and that the remote CodexBar CLI supports --summary-only." = "Externe kosten konden niet worden gelezen. Controleer SSH en of de externe CodexBar-CLI --summary-only ondersteunt.";
+
+"Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Gebruikt de oorspronkelijke Codex-geschiedenis. De SSH-host vereist een CodexBar-CLI die --daily-summary ondersteunt.";
+"Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "Dagelijkse kosten konden niet worden gelezen. Controleer SSH en werk de externe CodexBar-CLI bij voor ondersteuning van --daily-summary.";

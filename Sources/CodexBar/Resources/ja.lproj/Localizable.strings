@@ -1647,3 +1647,6 @@
 "Enter one SSH host alias or user@host." = "SSH ホストのエイリアスまたは user@host を 1 つ入力してください。";
 "The remote CLI returned an unsupported or invalid cost summary. Update CodexBar on that host." = "リモート CLI が未対応または無効なコストサマリーを返しました。そのホストの CodexBar を更新してください。";
 "Could not read remote costs. Check SSH and that the remote CodexBar CLI supports --summary-only." = "リモートのコストを読み込めませんでした。SSH と、リモートの CodexBar CLI が --summary-only に対応していることを確認してください。";
+
+"Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Codex のネイティブ履歴を使用します。SSH ホストには --daily-summary に対応した CodexBar CLI が必要です。";
+"Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "日別コストを読み取れませんでした。SSH を確認し、リモートの CodexBar CLI を --daily-summary 対応版に更新してください。";

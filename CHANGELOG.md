@@ -8,7 +8,7 @@
 - Vercel AI Gateway: show team-wide USD balance and lifetime spend through the documented API-key endpoint (#2975). Thanks @pikant!
 - DevPass: track plan credits, premium weekly usage and resets, and API-key spending through the documented LLM Gateway API (#3433). Thanks @MichelKerkmeester!
 - llmman: show how much of a local `llmman serve` daemon's model memory its loaded models use, with loaded and stored model summaries and an optional API key (#3914). Thanks @ericcurtin!
-- Codex: open **SSH Cost Report…** from the menu to manually compare this Mac's native history with one SSH host. Reports keep separate totals, snapshot times, time zones, and coverage; queries can be cancelled and host names honor Hide Personal Info.
+- Codex: open **SSH Cost Report…** from the menu to manually compare this Mac with one SSH host using separate 30-day token/cost charts. Reports retain source snapshot times and coverage, use the app's day-boundary timezone, and keep ordinary menu totals unchanged. Queries can be cancelled and host names honor Hide Personal Info; the remote CLI must support the numerical `--daily-summary` protocol.
 
 ### Fixed
 
