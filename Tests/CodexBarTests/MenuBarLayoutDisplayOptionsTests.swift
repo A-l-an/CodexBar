@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct MenuBarLayoutDisplayOptionsTests {
     @Test
-    func `size and gap pickers show their selection in a narrow row`() throws {
+    func `size and gap pickers show their selection in a narrow row`() {
         let hosting = Self.hostingView(width: 480, size: .small, gap: .tight)
         let popups = Self.popUpButtons(in: hosting)
 
