@@ -3,6 +3,60 @@
     <channel>
         <title>CodexBar</title>
         <item>
+            <title>0.67.0</title>
+            <pubDate>Fri, 25 Sep 2026 16:37:15 -0700</pubDate>
+            <link>https://raw.githubusercontent.com/steipete/CodexBar/main/appcast.xml</link>
+            <sparkle:version>158</sparkle:version>
+            <sparkle:shortVersionString>0.67.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>CodexBar 0.67.0</h2>
+<h3>Highlights</h3>
+<ul>
+<li>Reporting periods are one shared model: pick calendar month-to-date or all available history in menus, Usage &amp; Spend, the CLI, the HTTP cost output, and widgets, with rolling windows and the pinned cost time zone preserved (#2087, #2859, #1708).</li>
+<li>Portable preferences: export and import UI settings as versioned JSON from Settings or the CLI, keep them in dotfiles, and customize the provider-switcher shortcuts (#1282, #3457). Thanks @kiankyars and @lghsigma597!</li>
+<li>Opt-in Stay Awake keeps the Mac from idle-sleeping while a local agent session is live, and opt-in credential-expiry notifications tell you when a provider needs a fresh login (#2740, #2512). Thanks @kocaemre and @LeoLin990405!</li>
+<li>Plugins can keep small persistent checkpoints, and Sakana AI now runs as a bundled plugin with concurrent optional balance collection on both engines (#3170). Thanks @CrackedPoly!</li>
+<li>Burn Down widgets work for every provider quota that reports usage, a window, and a reset, including Devin daily/weekly and Cursor billing cycles (#3097). Thanks @thatlev!</li>
+<li>Four more providers and richer breakdowns: xKiro, Raycast, and Aixy join the registry, LiteLLM shows per-model activity, the Claude Admin API breaks spend down by workspace, and Grok lists product usage shares (#3729, #3960, #3958, #3432, #2350, #3975).</li>
+<li>Fixes worth calling out: a System Account switch now reaches the running Codex app-server so <code>/status</code> follows the new account (#3990), an explicit browser-cookie denial survives restarts and credential files are staged privately (#3986), long Usage &amp; Spend ranges lay out about six times faster (#3998), and the bundled QuickJS-NG is 0.17.0 with upstream memory-safety fixes (#3987). Thanks @massdo, @bo-vavrik, and @Yuxin-Qiao!</li>
+</ul>
+<h3>Added</h3>
+<ul>
+<li>Costs: select calendar month-to-date or all available history across menus, Usage &amp; Spend, CLI, HTTP cost output, and widgets; preserve rolling windows and the pinned cost time zone (#2087, #2859, #1708).</li>
+<li>Preferences: export and import portable UI settings as versioned JSON from Settings or the CLI, preserving local credentials and consent (#1282). Thanks @kiankyars!</li>
+<li>Provider switcher: customize local navigation and selection shortcuts in Settings or portable preferences, with duplicate and reserved-command validation (#3457). Thanks @lghsigma597!</li>
+<li>Agent sessions: add opt-in Stay Awake for live local agent processes, including idle sessions, with automatic release and a menu status indicator (#2740). Thanks @kocaemre!</li>
+<li>Notifications: add opt-in, account-scoped credential-expiry alerts and route Augment keepalive through shared delivery without repeated refresh notifications (#2512). Thanks @LeoLin990405!</li>
+<li>Plugins: preserve small non-secret checkpoints across app and CLI restarts with isolated, bounded string storage and explicit approval (#3170). Thanks @CrackedPoly!</li>
+<li>Sakana AI: run billing parsing as a bundled plugin on macOS and Linux while preserving concurrent, bounded optional balance collection on both engines.</li>
+<li>Widgets: offer Burn Down for compatible provider quotas, including Devin daily/weekly and Cursor billing cycles, with accurate labels and preserved Codex/Claude selections (#3097). Thanks @thatlev!</li>
+<li>xKiro: track the account&#x27;s daily free-token allowance and midnight UTC reset through the documented, unmetered usage API, separately from paid balances (#3729).</li>
+<li>Raycast: show monthly AI credits and renewal through a bundled plugin, with Chrome/manual cookies and expired-session recovery (#3960). Thanks @raulgg!</li>
+<li>Aixy: track key-scoped usage and applicable personal/shared budgets, including idle keys with zero spend (#3958). Thanks @oscarcpozas!</li>
+<li>LiteLLM: optionally show per-model input/output/total tokens and logged requests for the last 30 days while preserving personal/team budgets (#3432). Thanks @anyingiit!</li>
+<li>Claude Admin API: optionally break down 30-day spend by workspace while preserving organization totals (#2350). Thanks @ShawNova!</li>
+<li>Grok: show product usage shares beneath the quota bar using the existing billing response, while preserving the total and reset credits (#3975). Thanks @olddonkey!</li>
+<li>Preferred Currency: add NZD, SEK, NOK, DKK, PLN, BRL, MXN, ZAR, THB, IDR, VND, and UAH for spend estimates with daily exchange rates and offline fallback (#3984). Thanks @realistkrook!</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+<li>Codex: restart the running background app-server after switching the System Account, with a recovery note if the CLI cannot restart it. Fixes #3990. Thanks @massdo!</li>
+<li>OpenCode Go: include recorded local token counts in daily and per-model history without inventing costs or treating missing counts as zero (#3995). Thanks @Yuxin-Qiao!</li>
+<li>Usage &amp; Spend: start long daily ledgers with the newest 30 rows and a Show all control, reducing initial layout work while preserving full-period totals and charts (#3998). Thanks @Yuxin-Qiao!</li>
+<li>Security: preserve browser-cookie denial across restarts and CLI configuration, and stage credential writes privately before atomic replacement (reported in #3986). Thanks @bo-vavrik!</li>
+<li>Provider plugins: update bundled QuickJS-NG to 0.17.0 with upstream memory-safety and numeric-correctness fixes (#3987). Thanks @bo-vavrik!</li>
+<li>OpenRouter: explain the required API key field instead of reporting no available fetch strategy, and clarify where regular and Management keys belong (#3966, #3969). Thanks @harjothkhara!</li>
+<li>Antigravity: let menu-bar layouts pin Gemini and Claude/GPT weekly percentages separately when each allowance is available (#3394). Thanks @ksuchoi216!</li>
+<li>Antigravity: preserve decoded local history as a marked lower bound when later databases exhaust the schema budget, while retaining hard scan limits (#3957). Thanks @Niclassslua!</li>
+<li>Mistral: count plan-covered API, Le Chat, and Vibe Code tokens in usage history while keeping spend based on billed units (#3953). Thanks @welcoMattic!</li>
+<li>Codex costs: preserve inherited cumulative counters across direct forks and empty intermediate sessions, preventing copied history from becoming oversized billable requests (#3524). Thanks @korboybeats and @vnnkl!</li>
+<li>Plugins: compute daily reset times from the refresh clock in both plugin engines, so xKiro and other daily-reset plugins report the same reset the rest of the refresh saw.</li>
+</ul>
+<p><a href="https://github.com/steipete/CodexBar/blob/main/CHANGELOG.md">View full changelog</a></p>
+]]></description>
+            <enclosure url="https://github.com/steipete/CodexBar/releases/download/v0.67.0/CodexBar-macos-universal-0.67.0.zip" length="74486215" type="application/octet-stream" sparkle:edSignature="qFv3sF+mzXRx4QmlltXHqJPd1kFSzK3PgSl8m/2zqpRkOJRLJT7VlU6wottnVw3w2Qv50u3M60xqtRwUqddQCA=="/>
+        </item>
+        <item>
             <title>0.66.0</title>
             <pubDate>Thu, 24 Sep 2026 09:51:00 -0700</pubDate>
             <link>https://raw.githubusercontent.com/steipete/CodexBar/main/appcast.xml</link>
@@ -113,41 +167,6 @@
 <p><a href="https://github.com/steipete/CodexBar/blob/main/CHANGELOG.md">View full changelog</a></p>
 ]]></description>
             <enclosure url="https://github.com/steipete/CodexBar/releases/download/v0.65.0/CodexBar-macos-universal-0.65.0.zip" length="74615596" type="application/octet-stream" sparkle:edSignature="CLsGkS94jFtbtYRO4POaR05maFn9v1iRCtuPumpyWHCWPZNGyn+frHG9ydY+eejYFcjJZfPSlaNF3RWFhi1aDA=="/>
-        </item>
-        <item>
-            <title>0.64.1</title>
-            <pubDate>Tue, 22 Sep 2026 00:45:20 -0700</pubDate>
-            <link>https://raw.githubusercontent.com/steipete/CodexBar/main/appcast.xml</link>
-            <sparkle:version>153</sparkle:version>
-            <sparkle:shortVersionString>0.64.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>CodexBar 0.64.1</h2>
-<h3>Highlights</h3>
-<ul>
-<li><strong>More menu-bar control:</strong> pin Cursor&#x27;s Grok Bot usage and recover icons stranded beyond an attached display.</li>
-<li><strong>Kimi regions:</strong> choose China or International for usage, browser sessions, and dashboard links.</li>
-<li><strong>More reliable quotas:</strong> preserve OpenRouter balances under load and show each Antigravity quota pool once on Linux.</li>
-</ul>
-<h3>Added</h3>
-<ul>
-<li>Cursor: pin Grok Bot usage with the “Grok Bot %” menu-bar layout token, hiding it when the allowance is unavailable and preserving reset selections when downgrading (#3712, fixes #3309). Thanks @yicone!</li>
-</ul>
-<h3>Fixed</h3>
-<ul>
-<li>Website: show all 77 current providers with setup links, highlight Helmcode, v0, and TypeSafe, and clarify provider-specific data availability across all 23 languages.</li>
-<li>Linux: list each Antigravity quota pool once with its family label, preserving tray representatives and alert history (#3799). Thanks @jsonMartin!</li>
-<li>Plugins: start HTTP attempt deadlines when transport tasks begin, preserving OpenRouter balance when optional key requests time out under scheduler load (#3836).</li>
-<li>Menu bar: assign stable item names before normal sizing and clear saved positions beyond the widest attached display on creation, including visibility recovery (#3355, #3201).</li>
-<li>Kimi: select China or International regions for usage, cookies, and dashboard links, while preventing unscoped CLI credentials from crossing hosts (#3752). Thanks @LPFchan!</li>
-<li>Crof: remove the provider after the service shut down; existing config entries are ignored on read and removed on the next save (#3657). Thanks @baanish!</li>
-<li>Provider plugins: preserve transport error codes and cancellation on both engines, with an opt-in native retry policy for transient GET failures.</li>
-<li>Provider plugins: accept explicitly declared empty results without inventing usage or account identity.</li>
-<li>Provider plugins: expose native currency formatting with matching rounding, currency symbols, and negative zero on both engines.</li>
-<li>Neuralwatt: use the bundled quota plugin while preserving subscription usage, prepaid balances, key allowances, selective retries, and cancellation (#3811).</li>
-</ul>
-<p><a href="https://github.com/steipete/CodexBar/blob/main/CHANGELOG.md">View full changelog</a></p>
-]]></description>
-            <enclosure url="https://github.com/steipete/CodexBar/releases/download/v0.64.1/CodexBar-macos-universal-0.64.1.zip" length="74369599" type="application/octet-stream" sparkle:edSignature="vD7uXDlMahWksc5msZBxEGa0un2ApIk8E5gLNNSUnBxBFRWbSyFaSQDroktBRD19xDKUi/WAZ801KOltQlOCAQ=="/>
         </item>
         <item>
             <title>0.14.0</title>
