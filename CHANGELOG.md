@@ -1,33 +1,42 @@
 # Changelog
 
-## 0.66.1 — Unreleased
+## 0.67.0 — Unreleased
+
+### Highlights
+
+- Reporting periods are one shared model: pick calendar month-to-date or all available history in menus, Usage & Spend, the CLI, the HTTP cost output, and widgets, with rolling windows and the pinned cost time zone preserved (#2087, #2859, #1708).
+- Portable preferences: export and import UI settings as versioned JSON from Settings or the CLI, keep them in dotfiles, and customize the provider-switcher shortcuts (#1282, #3457). Thanks @kiankyars and @lghsigma597!
+- Opt-in Stay Awake keeps the Mac from idle-sleeping while a local agent session is live, and opt-in credential-expiry notifications tell you when a provider needs a fresh login (#2740, #2512). Thanks @kocaemre and @LeoLin990405!
+- Plugins can keep small persistent checkpoints, and Sakana AI now runs as a bundled plugin with concurrent optional balance collection on both engines (#3170). Thanks @CrackedPoly!
+- Burn Down widgets work for every provider quota that reports usage, a window, and a reset, including Devin daily/weekly and Cursor billing cycles (#3097). Thanks @thatlev!
+- Four more providers and richer breakdowns: xKiro, Raycast, and Aixy join the registry, LiteLLM shows per-model activity, the Claude Admin API breaks spend down by workspace, and Grok lists product usage shares (#3729, #3960, #3958, #3432, #2350, #3975).
 
 ### Added
 
-- Preferred Currency: add NZD, SEK, NOK, DKK, PLN, BRL, MXN, ZAR, THB, IDR, VND, and UAH for spend estimates with daily exchange rates and offline fallback (#3984). Thanks @realistkrook!
-- Grok: show product usage shares beneath the quota bar using the existing billing response, while preserving the total and reset credits (#3975). Thanks @olddonkey!
-- Agent sessions: add opt-in Stay Awake for live local agent processes, including idle sessions, with automatic release and a menu status indicator (#2740). Thanks @kocaemre!
-- Notifications: add opt-in, account-scoped credential-expiry alerts and route Augment keepalive through shared delivery without repeated refresh notifications (#2512). Thanks @LeoLin990405!
-- LiteLLM: optionally show per-model input/output/total tokens and logged requests for the last 30 days while preserving personal/team budgets (#3432). Thanks @anyingiit!
-- Claude Admin API: optionally break down 30-day spend by workspace while preserving organization totals (#2350). Thanks @ShawNova!
-- Plugins: preserve small non-secret checkpoints across app and CLI restarts with isolated, bounded string storage and explicit approval (#3170). Thanks @CrackedPoly!
-- Sakana AI: run billing parsing as a bundled plugin on macOS and Linux while preserving concurrent, bounded optional balance collection on both engines.
+- Costs: select calendar month-to-date or all available history across menus, Usage & Spend, CLI, HTTP cost output, and widgets; preserve rolling windows and the pinned cost time zone (#2087, #2859, #1708).
 - Preferences: export and import portable UI settings as versioned JSON from Settings or the CLI, preserving local credentials and consent (#1282). Thanks @kiankyars!
 - Provider switcher: customize local navigation and selection shortcuts in Settings or portable preferences, with duplicate and reserved-command validation (#3457). Thanks @lghsigma597!
-- Costs: select calendar month-to-date or all available history across menus, Usage & Spend, CLI, HTTP cost output, and widgets; preserve rolling windows and the pinned cost time zone (#2087, #2859, #1708).
+- Agent sessions: add opt-in Stay Awake for live local agent processes, including idle sessions, with automatic release and a menu status indicator (#2740). Thanks @kocaemre!
+- Notifications: add opt-in, account-scoped credential-expiry alerts and route Augment keepalive through shared delivery without repeated refresh notifications (#2512). Thanks @LeoLin990405!
+- Plugins: preserve small non-secret checkpoints across app and CLI restarts with isolated, bounded string storage and explicit approval (#3170). Thanks @CrackedPoly!
+- Sakana AI: run billing parsing as a bundled plugin on macOS and Linux while preserving concurrent, bounded optional balance collection on both engines.
+- Widgets: offer Burn Down for compatible provider quotas, including Devin daily/weekly and Cursor billing cycles, with accurate labels and preserved Codex/Claude selections (#3097). Thanks @thatlev!
 - xKiro: track the account's daily free-token allowance and midnight UTC reset through the documented, unmetered usage API, separately from paid balances (#3729).
 - Raycast: show monthly AI credits and renewal through a bundled plugin, with Chrome/manual cookies and expired-session recovery (#3960). Thanks @raulgg!
 - Aixy: track key-scoped usage and applicable personal/shared budgets, including idle keys with zero spend (#3958). Thanks @oscarcpozas!
-- Widgets: offer Burn Down for compatible provider quotas, including Devin daily/weekly and Cursor billing cycles, with accurate labels and preserved Codex/Claude selections (#3097). Thanks @thatlev!
+- LiteLLM: optionally show per-model input/output/total tokens and logged requests for the last 30 days while preserving personal/team budgets (#3432). Thanks @anyingiit!
+- Claude Admin API: optionally break down 30-day spend by workspace while preserving organization totals (#2350). Thanks @ShawNova!
+- Grok: show product usage shares beneath the quota bar using the existing billing response, while preserving the total and reset credits (#3975). Thanks @olddonkey!
+- Preferred Currency: add NZD, SEK, NOK, DKK, PLN, BRL, MXN, ZAR, THB, IDR, VND, and UAH for spend estimates with daily exchange rates and offline fallback (#3984). Thanks @realistkrook!
 
 ### Fixed
 
-- Antigravity: let menu-bar layouts pin Gemini and Claude/GPT weekly percentages separately when each allowance is available (#3394). Thanks @ksuchoi216!
-- Plugins: compute daily reset times from the refresh clock in both plugin engines, so xKiro and other daily-reset plugins report the same reset the rest of the refresh saw.
 - OpenRouter: explain the required API key field instead of reporting no available fetch strategy, and clarify where regular and Management keys belong (#3966, #3969). Thanks @harjothkhara!
+- Antigravity: let menu-bar layouts pin Gemini and Claude/GPT weekly percentages separately when each allowance is available (#3394). Thanks @ksuchoi216!
 - Antigravity: preserve decoded local history as a marked lower bound when later databases exhaust the schema budget, while retaining hard scan limits (#3957). Thanks @Niclassslua!
 - Mistral: count plan-covered API, Le Chat, and Vibe Code tokens in usage history while keeping spend based on billed units (#3953). Thanks @welcoMattic!
 - Codex costs: preserve inherited cumulative counters across direct forks and empty intermediate sessions, preventing copied history from becoming oversized billable requests (#3524). Thanks @korboybeats and @vnnkl!
+- Plugins: compute daily reset times from the refresh clock in both plugin engines, so xKiro and other daily-reset plugins report the same reset the rest of the refresh saw.
 
 ## 0.66.0 — 2026-09-24
 
