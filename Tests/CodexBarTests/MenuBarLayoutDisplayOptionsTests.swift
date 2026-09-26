@@ -5,27 +5,28 @@ import Testing
 
 @MainActor
 struct MenuBarLayoutDisplayOptionsTests {
-    @Test
-    func `size and gap pickers show their selection in a narrow row`() {
-        let hosting = Self.hostingView(width: 480, size: .small, gap: .tight)
-        let popups = Self.popUpButtons(in: hosting)
+    @Test(arguments: MenuBarLayoutSize.allCases, MenuBarLayoutGap.allCases)
+    func `size and gap selections remain accessible in a narrow row`(
+        size: MenuBarLayoutSize,
+        gap: MenuBarLayoutGap)
+    {
+        let hosting = Self.hostingView(width: 480, size: size, gap: gap)
+        let text = MenuLayoutScreenshotRenderTests.accessibilityText(hosting)
 
-        #expect(popups.count == 2)
-        let titles = popups.map(\.titleOfSelectedItem)
-        #expect(titles.contains(MenuBarLayoutSize.small.label))
-        #expect(titles.contains(MenuBarLayoutGap.tight.label))
-        for popup in popups {
-            // A compressed popup collapses to its chevron and hides the selected title.
-            #expect(popup.frame.width >= popup.intrinsicContentSize.width - 1)
-        }
+        #expect(text.contains(L("menu_bar_layout_size")))
+        #expect(text.contains(L("menu_bar_layout_gap")))
+        #expect(text.contains(size.label))
+        #expect(text.contains(gap.label))
     }
 
     @Test
-    func `row no longer shows the delete keyboard hint`() {
+    func `keyboard instructions remain in the footer without duplication in the row`() {
         let hosting = Self.hostingView(width: 720, size: .regular, gap: .regular)
         let hint = "Delete removes the selected token"
+        let text = MenuLayoutScreenshotRenderTests.accessibilityText(hosting)
 
-        #expect(!Self.texts(in: hosting).contains { $0.contains(hint) })
+        #expect(text.contains(L("menu_bar_layout_footer")))
+        #expect(!text.contains(hint))
         #expect(L("menu_bar_layout_keyboard_hint") != hint)
     }
 
@@ -34,13 +35,15 @@ struct MenuBarLayoutDisplayOptionsTests {
         guard let directory = ProcessInfo.processInfo.environment["CODEXBAR_LAYOUT_OPTIONS_SCREENSHOT_DIR"]
         else { return }
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
-            let hosting = Self.hostingView(width: 520, size: .small, gap: .tight, appearance: appearance)
-            let bitmap = try #require(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
-            hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
-            let png = try #require(bitmap.representation(using: .png, properties: [:]))
-            let name = appearance == .aqua ? "light" : "dark"
-            try png.write(to: URL(fileURLWithPath: directory)
-                .appendingPathComponent("menu-bar-layout-display-options-\(name).png"))
+            for width: CGFloat in [480, 520] {
+                let hosting = Self.hostingView(width: width, size: .small, gap: .tight, appearance: appearance)
+                let bitmap = try #require(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+                hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+                let png = try #require(bitmap.representation(using: .png, properties: [:]))
+                let name = appearance == .aqua ? "light" : "dark"
+                try png.write(to: URL(fileURLWithPath: directory)
+                    .appendingPathComponent("menu-bar-layout-options-\(Int(width))-\(name).png"))
+            }
         }
     }
 
@@ -51,28 +54,21 @@ struct MenuBarLayoutDisplayOptionsTests {
         appearance: NSAppearance.Name = .aqua)
         -> NSHostingView<some View>
     {
-        let view = MenuBarLayoutDisplayOptions(
-            size: .constant(size),
-            gap: .constant(gap),
-            verticalAdjustment: .constant(0))
-            .padding(16)
-            .frame(width: width)
-            .background(Color(nsColor: .windowBackgroundColor))
+        let view = VStack(alignment: .leading, spacing: 12) {
+            MenuBarLayoutDisplayOptions(
+                size: .constant(size),
+                gap: .constant(gap),
+                verticalAdjustment: .constant(0))
+            SettingsSectionFooter(L("menu_bar_layout_footer"))
+        }
+        .padding(16)
+        .frame(width: width)
+        .environment(\.accessibilityEnabled, true)
+        .background(Color(nsColor: .windowBackgroundColor))
         let hosting = NSHostingView(rootView: view)
         hosting.appearance = NSAppearance(named: appearance)
         hosting.frame = CGRect(origin: .zero, size: hosting.fittingSize)
         hosting.layoutSubtreeIfNeeded()
         return hosting
-    }
-
-    private static func popUpButtons(in view: NSView) -> [NSPopUpButton] {
-        let own = (view as? NSPopUpButton).map { [$0] } ?? []
-        return own + view.subviews.flatMap { self.popUpButtons(in: $0) }
-    }
-
-    private static func texts(in view: NSView) -> [String] {
-        let own = (view as? NSTextField).map { [$0.stringValue] } ?? []
-        let accessibility = [view.accessibilityLabel(), view.accessibilityValue() as? String].compactMap(\.self)
-        return own + accessibility + view.subviews.flatMap { self.texts(in: $0) }
     }
 }

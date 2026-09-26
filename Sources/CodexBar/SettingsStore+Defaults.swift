@@ -3,7 +3,7 @@ import Foundation
 import ServiceManagement
 
 extension SettingsStore {
-    private static let mergedOverviewSelectionEditedActiveProvidersKey = "mergedOverviewSelectionEditedActiveProviders"
+    static let mergedOverviewSelectionEditedActiveProvidersKey = "mergedOverviewSelectionEditedActiveProviders"
 
     func noteBackgroundWorkSettingsChanged() {
         self.backgroundWorkSettingsRevision &+= 1
@@ -137,6 +137,22 @@ extension SettingsStore {
             self.defaultsState.statusChecksEnabled = newValue
             self.userDefaults.set(newValue, forKey: "statusChecksEnabled")
             self.noteBackgroundWorkSettingsChanged()
+        }
+    }
+
+    var stayAwakeEnabled: Bool {
+        get { self.defaultsState.stayAwakeEnabled }
+        set {
+            self.defaultsState.stayAwakeEnabled = newValue
+            self.userDefaults.set(newValue, forKey: "stayAwakeEnabled")
+        }
+    }
+
+    var credentialExpiryNotificationsEnabled: Bool {
+        get { self.defaultsState.credentialExpiryNotificationsEnabled }
+        set {
+            self.defaultsState.credentialExpiryNotificationsEnabled = newValue
+            self.userDefaults.set(newValue, forKey: "credentialExpiryNotificationsEnabled")
         }
     }
 
@@ -595,15 +611,17 @@ extension SettingsStore {
     }
 
     var costUsageHistoryDays: Int {
-        get { self.defaultsState.costUsageHistoryDays }
+        get { self.costReportingPeriod.days(now: Date(), calendar: self.costUsageBucketCalendar) }
+        set { self.costReportingPeriod = .rolling(days: max(1, min(365, newValue))) }
+    }
+
+    var costReportingPeriod: CostReportingPeriod {
+        get { self.defaultsState.costReportingPeriod }
         set {
-            let clamped = max(1, min(365, newValue))
-            let changed = self.defaultsState.costUsageHistoryDays != clamped
-            self.defaultsState.costUsageHistoryDays = clamped
-            self.userDefaults.set(clamped, forKey: "tokenCostUsageHistoryDays")
-            if changed {
-                self.costUsageSettingsRevision &+= 1
-            }
+            guard self.defaultsState.costReportingPeriod != newValue else { return }
+            self.defaultsState.costReportingPeriod = newValue
+            self.userDefaults.set(newValue.rawValue, forKey: CostReportingPeriod.defaultsKey)
+            self.costUsageSettingsRevision &+= 1
             self.noteBackgroundWorkSettingsChanged()
         }
     }

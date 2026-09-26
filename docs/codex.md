@@ -81,6 +81,12 @@ Usage source picker:
   refresh is running discards the old workspace's result.
 - System Account promotion fails closed when a managed selection differs from the auth file's default workspace.
   CodexBar keeps that selection managed rather than silently promoting the default or rewriting Codex-owned auth.
+- After a successful System Account promotion, CodexBar restarts an already-running managed `codex app-server`
+  daemon for the destination Codex home so it reloads the selected account. It checks the daemon PID, process command,
+  and home-scoped control socket before running `codex app-server daemon restart` with that home's `CODEX_HOME`.
+  Homes without a running daemon are left alone. If the installed CLI cannot verify or restart it (including older
+  CLIs without daemon commands), the account remains switched and the menu/settings show a manual-restart note.
+  Restarting the background server can interrupt its active work; no login flow runs.
 - In the segmented layout, selecting an account refreshes its card while the menu stays open. Delayed results stay
   scoped to that selection. An open chart submenu or highlighted menu command can defer the update until the submenu
   closes or the highlight clears.
@@ -95,6 +101,8 @@ Usage source picker:
 - CodexBar reads identity from the configured home, exposes it in the Codex account switcher, and scopes
   remote Codex fetches with `CODEX_HOME`.
 - Profile homes are not copied, reauthenticated, or removed by CodexBar.
+- Selecting a profile-home usage card does not promote credentials or restart its daemon. Daemon refresh belongs to
+  System Account promotion and targets only the home whose auth file was replaced.
 
 Example:
 
@@ -255,6 +263,11 @@ the local result and returns a nonzero exit code. See [CLI host reporting](cli.m
     checkpoints until each file is refreshed.
   - Native Codex logs parse `event_msg` token_count entries and `turn_context` model markers; when both are present,
     `turn_context` is authoritative for the model bucket.
+  - Direct forks preserve the inherited origin of cumulative counters when resolving parent snapshots, including
+    intermediate sessions that are empty at the child's fork time. Repeated inherited snapshots contribute no
+    new usage; descendants count only their deltas. Ancestry remains a cache dependency, so ancestor changes
+    revalidate descendants even if the intermediate session records its first token event after the fork.
+    Parser revision 5 repairs existing files through bounded reparsing without discarding compatible stored history.
   - A subagent's `subagent_history_start_ordinal` is authoritative: earlier records are inherited context, even if
     they contain delivery markers or the file ends before child-owned history arrives. Later appends count only
     the child's own deltas. Older per-file parser revisions refresh through the normal scan budget while stored
