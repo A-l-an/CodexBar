@@ -11,7 +11,7 @@ extension CodexBarCLI {
         guard values.flags.contains("dailySummary"), values.flags.contains("providerNativeOnly"),
               values.options["provider"] == ["codex"], format == .json,
               !values.flags.contains("summaryOnly"), !values.flags.contains("breakdown"),
-              values.options["remote"] == nil, values.options["groupBy"] == nil,
+              values.options["remote"] == nil, values.options["groupBy"] == nil, values.options["period"] == nil,
               values.options["bucketTimeZone"]?.count == 1,
               let identifier = values.options["bucketTimeZone"]?.first
         else { throw RemoteCodexCostError.invalidReport }
@@ -31,7 +31,7 @@ extension CodexBarCLI {
                 code: .failure,
                 message: "Use --daily-summary with --provider codex --format json --provider-native-only " +
                     "and one valid --bucket-time-zone. It cannot be combined with --remote, --summary-only, " +
-                    "--group-by, or --breakdown.",
+                    "--group-by, --period, or --breakdown.",
                 output: output,
                 kind: .args)
         }

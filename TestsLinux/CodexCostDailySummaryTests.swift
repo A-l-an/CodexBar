@@ -231,7 +231,7 @@ struct CodexCostDailySummaryTests {
 
     @Test(arguments: [
         "valid", "noDaily", "oldSummary", "remote", "group", "breakdown", "noNative", "text", "provider",
-        "noZone", "twoZones", "badZone",
+        "noZone", "twoZones", "badZone", "periodAll", "periodMonth",
     ])
     func `CLI accepts only explicitly opted in native daily transport`(mode: String) throws {
         let parser = CommandParser(signature: CodexBarCLI._costSignatureForTesting())
@@ -251,6 +251,8 @@ struct CodexCostDailySummaryTests {
         case "noZone": arguments.removeLast(2)
         case "twoZones": arguments += ["--bucket-time-zone", "GMT"]
         case "badZone": arguments[7] = "invalid/fixture"
+        case "periodAll": arguments += ["--period", "all"]
+        case "periodMonth": arguments += ["--period", "month-to-date"]
         default: break
         }
         let values = try parser.parse(arguments: arguments)

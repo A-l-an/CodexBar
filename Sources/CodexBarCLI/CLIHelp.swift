@@ -119,7 +119,7 @@ extension CodexBarCLI {
                        [--json-output] [--log-level <trace|verbose|debug|info|warning|error|critical>] [-v|--verbose]
                        [--provider \(ProviderHelp.list)]
                        [--no-color] [--pretty] [--refresh] [--breakdown] [--provider-native-only]
-                       [--days <days>] [--group-by project|session]
+                       [--period month-to-date|all] [--days <days>] [--group-by project|session]
                        [--remote <ssh-host> | --summary-only | --daily-summary --bucket-time-zone <zone>]
 
         Description:
@@ -133,7 +133,7 @@ extension CodexBarCLI {
           Use --provider codex --remote <host> for separate local and SSH-host summaries.
           --summary-only emits versioned Codex JSON totals without account or session details.
           --daily-summary emits only numeric daily Codex history in the requested --bucket-time-zone.
-          It requires --provider codex --format json --provider-native-only and excludes other report modes.
+          Requires --provider codex --format json --provider-native-only and excludes --period and other report modes.
 
         Examples:
           codexbar cost
@@ -272,6 +272,8 @@ extension CodexBarCLI {
                              [--json-output] [--log-level <trace|verbose|debug|info|warning|error|critical>]
                              [-v|--verbose]
                              [--pretty]
+          codexbar config preferences export [--file <preferences.json>]
+          codexbar config preferences import --file <preferences.json> [--json]
           codexbar config providers [--format text|json] [--json] [--json-only] [--pretty]
           codexbar config enable --provider <name> [--format text|json] [--json] [--json-only] [--pretty]
           codexbar config disable --provider <name> [--format text|json] [--json] [--json-only] [--pretty]
@@ -285,6 +287,8 @@ extension CodexBarCLI {
           Validate or print the CodexBar config file (default: validate).
           dump prints normalized config JSON with stored credentials redacted by default
           (use --show-secrets to reveal raw values).
+          preferences transfers allowlisted UI settings on macOS; import applies in the running app or next launch.
+          Export writes JSON to stdout unless --file is supplied. --defaults-domain selects an alternate app domain.
           providers lists persistent provider enablement.
           enable/disable updates the same provider toggle used by Settings.
           set-api-key stores a provider API key in the resolved config file and enables that provider by default.
@@ -474,7 +478,7 @@ extension CodexBarCLI {
                        [--json-output] [--log-level <trace|verbose|debug|info|warning|error|critical>] [-v|--verbose]
                        [--provider \(ProviderHelp.list)] [--no-color] [--pretty] [--refresh] [--breakdown]
                        [--provider-native-only]
-                       [--days <days>] [--group-by project|session]
+                       [--period month-to-date|all] [--days <days>] [--group-by project|session]
           codexbar sessions [--json|--json-v2] [--pretty]
           codexbar sessions focus <id>
           codexbar dashboard [--pretty] [--timeout <seconds>] [--output <path>]

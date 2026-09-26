@@ -484,6 +484,7 @@
 "cost_summary_style_inline_help" = "Pokazuje podsumowanie kosztów bezpośrednio w menu głównym.";
 "cost_summary_style_submenu_help" = "Zamiast tego pokazuje szczegółowe podmenu Koszt.";
 "cost_summary_style_both_help" = "Pokazuje podsumowanie w menu głównym i szczegółowe podmenu Koszt.";
+"Month to date" = "Od początku miesiąca";
 "cost_history_window_title" = "Zakres historii";
 "cost_history_window_help" = "Ustawia, ile dni lokalnych dzienników użycia pokazać w menu.";
 "cost_history_days_title" = "Zakres historii: %d dni";
@@ -1416,7 +1417,6 @@
 "menu_bar_layout_gap_tight" = "Wąski";
 "menu_bar_layout_gap_regular" = "Zwykły";
 "menu_bar_layout_vertical_adjustment" = "Regulacja pionowa";
-"menu_bar_layout_keyboard_hint" = "Delete usuwa zaznaczony element";
 "menu_bar_layout_sample_account" = "konto";
 "menu_bar_layout_sample_runs_out" = "wyczerpie się pt.";
 "menu_bar_layout_token_icon" = "Ikona";

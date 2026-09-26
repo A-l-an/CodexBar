@@ -3,7 +3,7 @@ import Testing
 @testable import CodexBarCore
 
 struct CLICodexDailySummaryProcessTests {
-    @Test(arguments: ["valid", "invalidZone", "zoneOnly", "conflictingMode", "legacySummary"])
+    @Test(arguments: ["valid", "invalidZone", "zoneOnly", "conflictingMode", "periodAll", "periodMonth", "legacySummary"])
     func `daily CLI validates and scans independently of unrelated unreadable config`(mode: String) async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -48,6 +48,8 @@ struct CLICodexDailySummaryProcessTests {
         ]
         if mode == "zoneOnly" { arguments.removeAll { $0 == "--daily-summary" } }
         if mode == "conflictingMode" { arguments.append("--summary-only") }
+        if mode == "periodAll" { arguments += ["--period", "all"] }
+        if mode == "periodMonth" { arguments += ["--period", "month-to-date"] }
         if mode == "legacySummary" {
             arguments.removeLast(2)
             arguments.removeAll { $0 == "--daily-summary" }

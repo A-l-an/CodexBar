@@ -267,6 +267,7 @@ final class SettingsStore {
     @ObservationIgnored var selectedMenuProviderRawStorage: String?
     @ObservationIgnored private nonisolated(unsafe) var lowPowerModeObserver: NSObjectProtocol?
     var defaultsState: SettingsDefaultsState
+    var providerSwitcherShortcuts = ProviderSwitcherShortcuts.defaults
     var configRevision: Int = 0
     var providerDetailSettingsRevision: Int = 0
     var backgroundWorkSettingsRevision: Int = 0
@@ -353,7 +354,6 @@ final class SettingsStore {
         {
             userDefaults.set(legacyOpenAIWebAccess, forKey: "openAIWebAccessEnabled")
         }
-        let hasStoredOpenAIWebAccessPreference = userDefaults.object(forKey: "openAIWebAccessEnabled") != nil
         let legacyStores = CodexBarConfigMigrator.LegacyStores(
             zaiTokenStore: zaiTokenStore,
             syntheticTokenStore: syntheticTokenStore,
@@ -374,6 +374,8 @@ final class SettingsStore {
             userDefaults: userDefaults,
             keychainAccessDisabled: keychainAccessPolicy.isExplicitlyDisabled(),
             stores: legacyStores)
+        _ = Self.initializeOpenAIWebAccessPreference(
+            userDefaults: userDefaults, config: config, hadExistingConfig: hadExistingConfig)
         self.userDefaults = userDefaults
         self.configStore = configStore
         self.antigravityOAuthCredentialsStore = antigravityOAuthCredentialsStore
@@ -384,6 +386,9 @@ final class SettingsStore {
             userDefaults: userDefaults,
             hadPreviousInstallationState: hadPreviousInstallationState)
         self.defaultsState = defaultsState
+        self.providerSwitcherShortcuts = (try? ProviderSwitcherShortcuts.validated(
+            userDefaults.dictionary(forKey: "switcherShortcuts") as? [String: String] ?? [:]))
+            ?? ProviderSwitcherShortcuts.defaults
         self.mergedMenuLastSelectedWasOverviewStorage = defaultsState.mergedMenuLastSelectedWasOverview
         self.selectedMenuProviderRawStorage = defaultsState.selectedMenuProviderRaw
         self.updateProviderState(config: config)
@@ -404,17 +409,9 @@ final class SettingsStore {
                 self.defaultsState.claudeWebExtrasEnabledRaw = false
             }
         }
-        let resolvedOpenAIWebAccessEnabled = if hasStoredOpenAIWebAccessPreference {
-            self.defaultsState.openAIWebAccessEnabled
-        } else {
-            Self.inferredInitialOpenAIWebAccessEnabled(
-                config: config,
-                hadExistingConfig: hadExistingConfig)
-        }
-        if Self.isRunningTests {
-            self.openAIWebAccessEnabled = resolvedOpenAIWebAccessEnabled
-        } else {
-            self.defaultsState.openAIWebAccessEnabled = resolvedOpenAIWebAccessEnabled
+        // Provider-specific by design: the legacy OpenAI web denial also governs Codex's CLI cookie source.
+        if !self.openAIWebAccessEnabled, self.providerConfig(for: .codex)?.cookieSource == nil {
+            self.codexCookieSource = .off
         }
         self.keychainAccessPolicy.setDisabled(self.debugDisableKeychainAccess)
         self.startConfigFileWatcher()
@@ -464,6 +461,18 @@ extension SettingsStore {
                     "migratedDefaults": "\(result.copiedDefaults)",
                 ])
         }
+    }
+
+    static func initializeOpenAIWebAccessPreference(
+        userDefaults: UserDefaults,
+        config: CodexBarConfig,
+        hadExistingConfig: Bool) -> Bool
+    {
+        if let stored = userDefaults.object(forKey: "openAIWebAccessEnabled") { return stored as? Bool ?? false }
+        let enabled = self.inferredInitialOpenAIWebAccessEnabled(config: config, hadExistingConfig: hadExistingConfig)
+        // Freeze the startup decision before a later launch can infer consent from a generated config.
+        userDefaults.set(enabled, forKey: "openAIWebAccessEnabled")
+        return enabled
     }
 
     private static func inferredInitialOpenAIWebAccessEnabled(
@@ -552,8 +561,9 @@ extension SettingsStore {
         let costUsageEnabled = userDefaults.object(forKey: "tokenCostUsageEnabled") as? Bool ?? false
         let codexLocalSessionCostLedgerEnabled = userDefaults.object(
             forKey: "codexLocalSessionCostLedgerEnabled") as? Bool ?? false
-        let rawCostUsageHistoryDays = userDefaults.object(forKey: "tokenCostUsageHistoryDays") as? Int ?? 30
-        let costUsageHistoryDays = max(1, min(365, rawCostUsageHistoryDays))
+        let costReportingPeriod = CostReportingPeriod.migrated(
+            rawValue: userDefaults.string(forKey: CostReportingPeriod.defaultsKey),
+            legacyDays: userDefaults.object(forKey: CostReportingPeriod.legacyDaysKey) as? Int)
         let storedBucketTimeZone = userDefaults.string(forKey: "tokenCostUsageBucketTimeZone") ?? ""
         let costUsageBucketTimeZoneIdentifier = CostUsageBucketTimeZone.isValidIdentifier(storedBucketTimeZone)
             ? storedBucketTimeZone
@@ -604,11 +614,7 @@ extension SettingsStore {
         if Self.isRunningTests, userDefaults.object(forKey: "codexExternalOAuthSourcesAllowed") == nil {
             userDefaults.set(false, forKey: "codexExternalOAuthSourcesAllowed")
         }
-        let openAIWebAccessDefault = userDefaults.object(forKey: "openAIWebAccessEnabled") as? Bool
-        let openAIWebAccessEnabled = openAIWebAccessDefault ?? false
-        if Self.isRunningTests, openAIWebAccessDefault == nil {
-            userDefaults.set(false, forKey: "openAIWebAccessEnabled")
-        }
+        let openAIWebAccessEnabled = userDefaults.object(forKey: "openAIWebAccessEnabled") as? Bool ?? false
         let openAIWebBatterySaverDefault = userDefaults.object(forKey: "openAIWebBatterySaverEnabled") as? Bool
         let openAIWebBatterySaverEnabled = openAIWebBatterySaverDefault ?? false
         if Self.isRunningTests, openAIWebBatterySaverDefault == nil {
@@ -664,6 +670,8 @@ extension SettingsStore {
             debugLoadingPatternRaw: debugLoadingPatternRaw,
             debugKeepCLISessionsAlive: debugKeepCLISessionsAlive,
             statusChecksEnabled: notificationDefaults.statusChecksEnabled,
+            stayAwakeEnabled: userDefaults.bool(forKey: "stayAwakeEnabled"),
+            credentialExpiryNotificationsEnabled: userDefaults.bool(forKey: "credentialExpiryNotificationsEnabled"),
             sessionQuotaNotificationsEnabled: notificationDefaults.sessionQuotaNotificationsEnabled,
             quotaWarningNotificationsEnabled: quotaWarnings.notificationsEnabled,
             predictivePaceWarningNotificationsEnabled: notificationDefaults.predictivePaceWarningNotificationsEnabled,
@@ -703,7 +711,7 @@ extension SettingsStore {
             copilotSeatCreditEntitlementRaw: copilotSeatCreditEntitlementRaw,
             costUsageEnabled: costUsageEnabled,
             codexLocalSessionCostLedgerEnabled: codexLocalSessionCostLedgerEnabled,
-            costUsageHistoryDays: costUsageHistoryDays,
+            costReportingPeriod: costReportingPeriod,
             costUsageBucketTimeZoneIdentifier: costUsageBucketTimeZoneIdentifier,
             openCodexUsageLogsEnabled: openCodexUsageLogsEnabled,
             hideNativeCodexCostWhenOpenCodexPresent: hideNativeCodexCostWhenOpenCodexPresent,

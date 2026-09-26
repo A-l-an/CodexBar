@@ -26,6 +26,8 @@ extension StatusItemController {
 
     private func cancelShutdownTasks() {
         self.agentSessions.stop()
+        self.store.credentialNotificationsStopped = true
+        self.store.retireCredentialNotifications()
         self.menuAppearanceObserver?.stop()
         self.menuAppearanceObserver = nil
         self.blinkTask?.cancel()
