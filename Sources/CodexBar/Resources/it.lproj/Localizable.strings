@@ -1660,4 +1660,4 @@
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Usa la cronologia nativa di Codex. L’host SSH richiede una CLI CodexBar con supporto per --daily-summary.";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "Impossibile leggere i costi giornalieri. Controlla SSH e aggiorna la CLI CodexBar remota per supportare --daily-summary.";
 
-"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Daily charts unavailable. Update the remote CodexBar CLI to enable them.";
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Grafici giornalieri non disponibili. Aggiorna la CLI di CodexBar sull’host remoto per abilitarli.";
