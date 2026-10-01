@@ -967,6 +967,12 @@
 "Copied" = "تم النسخ";
 "Managed by Homebrew" = "تتم إدارته بواسطة Homebrew";
 "Copy update command" = "نسخ أمر التحديث";
+"Update to %@" = "التحديث إلى %@";
+"CodexBar %@ is available" = "CodexBar %@ متاح";
+"CodexBar is up to date" = "CodexBar محدَّث";
+"Checking for updates…" = "جارٍ البحث عن تحديثات…";
+"Updating with Homebrew…" = "جارٍ التحديث عبر Homebrew…";
+"Homebrew update failed. You can run this command in Terminal instead:" = "فشل التحديث عبر Homebrew. يمكنك تشغيل هذا الأمر في Terminal بدلاً من ذلك:";
 "Copy error" = "خطأ في النسخ.";
 "Copy path" = "مسار النسخ";
 "Extra usage spent" = "الاستخدام الإضافي المخصص";
@@ -1654,3 +1660,5 @@
 
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "يستخدم سجل Codex الأصلي. يحتاج مضيف SSH إلى واجهة CodexBar CLI تدعم --daily-summary.";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "تعذرت قراءة التكاليف اليومية. تحقق من SSH وحدّث CodexBar CLI على المضيف البعيد لدعم --daily-summary.";
+
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Daily charts unavailable. Update the remote CodexBar CLI to enable them.";

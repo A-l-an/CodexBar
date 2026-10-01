@@ -963,6 +963,12 @@
 "Copied" = "Kopyalandı";
 "Managed by Homebrew" = "Homebrew tarafından yönetiliyor";
 "Copy update command" = "Güncelleme komutunu kopyala";
+"Update to %@" = "%@ sürümüne güncelle";
+"CodexBar %@ is available" = "CodexBar %@ kullanılabilir";
+"CodexBar is up to date" = "CodexBar güncel";
+"Checking for updates…" = "Güncellemeler denetleniyor…";
+"Updating with Homebrew…" = "Homebrew ile güncelleniyor…";
+"Homebrew update failed. You can run this command in Terminal instead:" = "Homebrew güncellemesi başarısız oldu. Bunun yerine bu komutu Terminal'de çalıştırabilirsiniz:";
 "Copy error" = "Kopyalama hatası";
 "Copy path" = "Yolu kopyala";
 "Extra usage spent" = "Harcanan ek kullanım";
@@ -1652,3 +1658,5 @@
 
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Codex’in yerel geçmişini kullanır. SSH ana bilgisayarında --daily-summary destekleyen bir CodexBar CLI gerekir.";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "Günlük maliyetler okunamadı. SSH bağlantısını kontrol edin ve uzak CodexBar CLI’yi --daily-summary desteği için güncelleyin.";
+
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Daily charts unavailable. Update the remote CodexBar CLI to enable them.";

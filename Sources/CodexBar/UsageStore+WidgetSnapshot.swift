@@ -38,9 +38,7 @@ extension UsageStore {
         }()
         let snapshot = self.makeWidgetSnapshot(previousSnapshot: previousSnapshot)
         self.lastQueuedWidgetSnapshot = snapshot
-        self.lastQueuedWidgetSnapshotIsPreservable = snapshot.entries.allSatisfy {
-            !self.widgetUsagePreservationBlockedProviders.contains($0.provider)
-        }
+        self.invalidatedQueuedWidgetProviders = self.widgetUsagePreservationBlockedProviders
         NotificationCenter.default.post(
             name: .codexbarUsageSnapshotsDidChange,
             object: UsageSnapshotsDidChangeEvent(snapshots: self.cloudSyncAccountSnapshots()))
@@ -188,35 +186,31 @@ extension UsageStore {
     func invalidateGenericWidgetUsage(for provider: UsageProvider) {
         // Provider-specific by design: Claude keeps its existing owner-aware preservation policy.
         guard provider != .claude else { return }
+        self.lastWidgetSourceSnapshots[provider.instanceID] = nil
         self.widgetUsagePreservationBlockedProviders.insert(provider.instanceID)
         // A successful fetch cannot make an older queued account valid again.
-        if self.lastQueuedWidgetSnapshot?.entries.contains(where: { $0.provider == provider.instanceID }) == true {
-            self.lastQueuedWidgetSnapshotIsPreservable = false
-        }
+        self.invalidatedQueuedWidgetProviders.insert(provider.instanceID)
     }
 
     private func makeWidgetSnapshot(previousSnapshot: WidgetSnapshot?) -> WidgetSnapshot {
         let now = Date()
         let enabledProviders = self.enabledProviders()
-        var entries = UsageProvider.allCases.compactMap { provider in
-            self.makeWidgetEntry(
+        let entries = UsageProvider.allCases.compactMap { provider -> WidgetSnapshot.ProviderEntry? in
+            if let entry = self.makeWidgetEntry(
                 for: provider,
                 now: now,
                 previousEntry: previousSnapshot?.entries.first { $0.provider == provider.instanceID })
-        }
-        // Only reuse this process's publication; disk entries do not establish the current account's ownership.
-        if entries.isEmpty, self.lastQueuedWidgetSnapshotIsPreservable,
-           let previousSnapshot = self.lastQueuedWidgetSnapshot,
-           previousSnapshot.enabledProviders.allSatisfy(enabledProviders.contains),
-           previousSnapshot.entries.allSatisfy({ entry in
-               // Provider-specific by design: Claude's owner-aware preservation above remains authoritative.
-               entry.provider != .claude && enabledProviders.contains(entry.provider) &&
-                   self.errors[entry.provider] != nil &&
-                   (entry.providerCost == nil || self.settings.showOptionalCreditsAndExtraUsage) &&
-                   !self.widgetUsagePreservationBlockedProviders.contains(entry.provider)
-           })
-        {
-            entries = previousSnapshot.entries
+            { return entry }
+            // Provider-specific by design: Claude uses its owner-aware path; others require this process's publication.
+            guard provider != .claude, enabledProviders.contains(provider.instanceID),
+                  self.errors[provider.instanceID] != nil,
+                  !self.invalidatedQueuedWidgetProviders.contains(provider.instanceID),
+                  !self.widgetUsagePreservationBlockedProviders.contains(provider.instanceID),
+                  let entry = self.lastQueuedWidgetSnapshot?.entries
+                      .first(where: { $0.provider == provider.instanceID }),
+                      entry.providerCost == nil || self.settings.showOptionalCreditsAndExtraUsage
+            else { return nil }
+            return self.preservedWidgetEntryForCurrentMetric(entry)
         }
         return WidgetSnapshot(
             entries: entries,
@@ -282,6 +276,11 @@ extension UsageStore {
         let usageRows = snapshot.map {
             self.widgetUsageRows(provider: provider, snapshot: $0, now: now)
         } ?? preservedClaudeUsage?.usageRows ?? []
+        if ProviderDescriptorRegistry.descriptor(for: provider).presentation.widgetRowsFollowMenuBarMetric,
+           let snapshot
+        {
+            self.lastWidgetSourceSnapshots[provider.instanceID] = snapshot
+        }
 
         let creditsRemaining: Double?
         let codeReviewRemaining: Double?
@@ -554,7 +553,11 @@ extension UsageStore {
                     percentLeft: window.window.remainingPercent)
             })
         }
-        return rows.filter { $0.percentLeft != nil }
+        return ProviderDescriptorRegistry.descriptor(for: provider).presentation.widgetRows(
+            rows,
+            snapshot: snapshot,
+            metric: self.settings.menuBarMetricPreference(for: provider, snapshot: snapshot).providerMetric)
+            .filter { $0.percentLeft != nil }
     }
 
     /// Identifier prefix Claude fetchers use for model-scoped weekly carve-outs (for example, Fable).
@@ -587,5 +590,29 @@ extension UsageStore {
                 title: namedWindow.title,
                 percentLeft: namedWindow.usageKnown ? namedWindow.window.remainingPercent : nil)
         }
+    }
+
+    /// Reproject the last published source without changing its measurement time.
+    private func preservedWidgetEntryForCurrentMetric(
+        _ entry: WidgetSnapshot.ProviderEntry) -> WidgetSnapshot.ProviderEntry
+    {
+        guard let provider = entry.provider.firstPartyProvider,
+              ProviderDescriptorRegistry.descriptor(for: provider).presentation.widgetRowsFollowMenuBarMetric,
+              let snapshot = self.lastWidgetSourceSnapshots[entry.provider]
+        else { return entry }
+        return WidgetSnapshot.ProviderEntry(
+            instanceID: entry.provider,
+            updatedAt: entry.updatedAt,
+            primary: entry.primary,
+            secondary: entry.secondary,
+            tertiary: entry.tertiary,
+            usageRows: self.widgetUsageRows(provider: provider, snapshot: snapshot, now: entry.updatedAt),
+            creditsRemaining: entry.creditsRemaining,
+            codeReviewRemainingPercent: entry.codeReviewRemainingPercent,
+            tokenUsage: entry.tokenUsage,
+            dailyUsage: entry.dailyUsage,
+            providerCost: entry.providerCost,
+            quotaOwnerKey: entry.quotaOwnerKey,
+            balanceText: entry.balanceText)
     }
 }

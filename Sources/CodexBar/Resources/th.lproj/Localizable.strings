@@ -967,6 +967,12 @@
 "Copied" = "คัดลอกแล้ว";
 "Managed by Homebrew" = "จัดการโดย Homebrew";
 "Copy update command" = "คัดลอกคำสั่งอัปเดต";
+"Update to %@" = "อัปเดตเป็น %@";
+"CodexBar %@ is available" = "CodexBar %@ พร้อมให้ใช้งานแล้ว";
+"CodexBar is up to date" = "CodexBar เป็นเวอร์ชันล่าสุดแล้ว";
+"Checking for updates…" = "กำลังตรวจหาอัปเดต…";
+"Updating with Homebrew…" = "กำลังอัปเดตด้วย Homebrew…";
+"Homebrew update failed. You can run this command in Terminal instead:" = "อัปเดตผ่าน Homebrew ไม่สำเร็จ คุณสามารถเรียกใช้คำสั่งนี้ใน Terminal แทนได้:";
 "Copy error" = "ข้อผิดพลาดในการคัดลอก";
 "Copy path" = "คัดลอกเส้นทาง";
 "Extra usage spent" = "การใช้จ่ายเพิ่มเติม";
@@ -1654,3 +1660,5 @@
 
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "ใช้ประวัติ Codex ดั้งเดิม โฮสต์ SSH ต้องมี CodexBar CLI ที่รองรับ --daily-summary";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "อ่านค่าใช้จ่ายรายวันไม่ได้ ตรวจสอบ SSH และอัปเดต CodexBar CLI บนเครื่องระยะไกลให้รองรับ --daily-summary";
+
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Daily charts unavailable. Update the remote CodexBar CLI to enable them.";

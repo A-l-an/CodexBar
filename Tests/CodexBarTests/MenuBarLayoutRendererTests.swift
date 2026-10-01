@@ -398,29 +398,7 @@ struct MenuBarLayoutRendererTests {
     @Test
     func `missing token data keeps every sibling visible as a placeholder`() {
         let renderer = MenuBarLayoutRenderer()
-        let missingData = MenuBarLayoutRenderData(
-            provider: .codex,
-            iconKey: "missing",
-            providerName: nil,
-            accountLabel: nil,
-            laneLabels: MenuBarLayoutLaneLabels(provider: .codex, snapshot: nil),
-            primary: nil,
-            secondary: nil,
-            tertiary: nil,
-            session: nil,
-            weekly: nil,
-            scopedWeekly: nil,
-            scopedWeeklyTitle: nil,
-            automatic: nil,
-            automaticText: nil,
-            sessionPace: nil,
-            weeklyPace: nil,
-            automaticPace: nil,
-            runsOut: nil,
-            balance: nil,
-            costToday: nil,
-            cost30d: nil,
-            metrics: .unavailable)
+        let missingData = Self.missingData
         let layout = MenuBarLayout(lines: [[
             .icon,
             .providerName,
@@ -1012,70 +990,31 @@ struct MenuBarLayoutRendererTests {
             .attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == .controlTextColor)
     }
 
-    @Test
-    func `conditional renders then branch when predicate true`() {
+    @Test(arguments: [
+        (0.0, MenuBarLayoutToken.percent(window: .session), "5h 25%"),
+        (50.0, MenuBarLayoutToken.resetCountdown, "in 2h"),
+    ])
+    func `conditional renders the matching branch`(threshold: Double, token: MenuBarLayoutToken, expected: String) {
         let renderer = MenuBarLayoutRenderer()
+        // Session is 25%, so the two thresholds exercise both branches.
         let conditional = MenuBarLayoutConditional(
-            clauses: [self.clause(metric: .session, comparison: .greaterThan, threshold: 0)],
+            clauses: [self.clause(metric: .session, comparison: .greaterThan, threshold: threshold)],
             thenToken: .percent(window: .session),
             elseToken: .resetCountdown)
         let data = self.data()
-
         let output = renderer.render(
             layout: MenuBarLayout(lines: [[.conditional(id: conditional.id)]]),
             data: data,
             icon: nil,
             options: self.options(conditionals: [conditional]))
         let control = renderer.render(
-            layout: MenuBarLayout(lines: [[.percent(window: .session)]]),
+            layout: MenuBarLayout(lines: [[token]]),
             data: data,
             icon: nil,
             options: self.options())
 
         #expect(output.attributedTitle.string == control.attributedTitle.string)
-        #expect(output.attributedTitle.string == "5h 25%")
-    }
-
-    @Test
-    func `conditional renders else branch when predicate false`() {
-        let renderer = MenuBarLayoutRenderer()
-        // Session is 25%, so a > 50 threshold fails and the else branch must win.
-        let conditional = MenuBarLayoutConditional(
-            clauses: [self.clause(metric: .session, comparison: .greaterThan, threshold: 50)],
-            thenToken: .percent(window: .session),
-            elseToken: .resetCountdown)
-        let data = self.data()
-
-        let output = renderer.render(
-            layout: MenuBarLayout(lines: [[.conditional(id: conditional.id)]]),
-            data: data,
-            icon: nil,
-            options: self.options(conditionals: [conditional]))
-        let control = renderer.render(
-            layout: MenuBarLayout(lines: [[.resetCountdown]]),
-            data: data,
-            icon: nil,
-            options: self.options())
-
-        #expect(output.attributedTitle.string == control.attributedTitle.string)
-        #expect(output.attributedTitle.string == "in 2h")
-    }
-
-    @Test
-    func `hidden branch renders nothing`() {
-        let renderer = MenuBarLayoutRenderer()
-        // Session is 25%, so > 50 fails and the else branch (.hidden) wins, contributing nothing.
-        let conditional = MenuBarLayoutConditional(
-            clauses: [self.clause(metric: .session, comparison: .greaterThan, threshold: 50)],
-            thenToken: .percent(window: .session),
-            elseToken: .hidden)
-
-        let output = renderer.render(
-            layout: MenuBarLayout(lines: [[.conditional(id: conditional.id)]]),
-            data: self.data(),
-            icon: nil,
-            options: self.options(conditionals: [conditional]))
-        #expect(output.attributedTitle.string.isEmpty)
+        #expect(output.attributedTitle.string == expected)
     }
 
     @Test
@@ -1161,29 +1100,7 @@ struct MenuBarLayoutRendererTests {
             clauses: [self.clause(metric: .session, comparison: .greaterThan, threshold: 0)],
             thenToken: .percent(window: .session),
             elseToken: .resetCountdown)
-        let data = MenuBarLayoutRenderData(
-            provider: .codex,
-            iconKey: "missing",
-            providerName: nil,
-            accountLabel: nil,
-            laneLabels: MenuBarLayoutLaneLabels(provider: .codex, snapshot: nil),
-            primary: nil,
-            secondary: nil,
-            tertiary: nil,
-            session: nil,
-            weekly: nil,
-            scopedWeekly: nil,
-            scopedWeeklyTitle: nil,
-            automatic: nil,
-            automaticText: nil,
-            sessionPace: nil,
-            weeklyPace: nil,
-            automaticPace: nil,
-            runsOut: nil,
-            balance: nil,
-            costToday: nil,
-            cost30d: nil,
-            metrics: .unavailable)
+        let data = Self.missingData
 
         let output = renderer.render(
             layout: MenuBarLayout(lines: [[.conditional(id: conditional.id)]]),
@@ -1831,6 +1748,32 @@ struct MenuBarLayoutRendererTests {
             #expect(output.attributedTitle.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
                 == expected)
         }
+    }
+
+    private static var missingData: MenuBarLayoutRenderData {
+        MenuBarLayoutRenderData(
+            provider: .codex,
+            iconKey: "missing",
+            providerName: nil,
+            accountLabel: nil,
+            laneLabels: MenuBarLayoutLaneLabels(provider: .codex, snapshot: nil),
+            primary: nil,
+            secondary: nil,
+            tertiary: nil,
+            session: nil,
+            weekly: nil,
+            scopedWeekly: nil,
+            scopedWeeklyTitle: nil,
+            automatic: nil,
+            automaticText: nil,
+            sessionPace: nil,
+            weeklyPace: nil,
+            automaticPace: nil,
+            runsOut: nil,
+            balance: nil,
+            costToday: nil,
+            cost30d: nil,
+            metrics: .unavailable)
     }
 
     func data(

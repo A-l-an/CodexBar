@@ -120,7 +120,7 @@ struct ProviderSettingsIntegrationTests {
     @Test
     func `standard app cookie sections keep account overrides scoped and normalized`() {
         let settings = testSettingsStore(suiteName: #function, userDefaults: InMemoryUserDefaults())
-        settings.manusManualCookieHeader = "session_id=configured"
+        settings[providerConfig: .manus, field: .cookieHeader] = "session_id=configured"
         settings.miMoCookieHeader = "mimo=configured"
         let account = ProviderTokenAccount(id: UUID(), label: "Fixture", token: "override", addedAt: 0, lastUsed: nil)
         let snapshot = ProviderRegistry.makeSettingsSnapshot(
@@ -131,7 +131,7 @@ struct ProviderSettingsIntegrationTests {
         #expect(snapshot.manus?.manualCookieHeader == "session_id=override")
         #expect(snapshot.mimo?.cookieSource == .auto)
         #expect(snapshot.mimo?.manualCookieHeader == "mimo=configured")
-        #expect(settings.manusManualCookieHeader == "session_id=configured")
+        #expect(settings[providerConfig: .manus, field: .cookieHeader] == "session_id=configured")
         #expect(settings.tokenAccounts(for: .manus).isEmpty)
 
         #expect(TokenAccountSupportCatalog.support(for: .qwencloud) == nil)
@@ -143,8 +143,8 @@ struct ProviderSettingsIntegrationTests {
         #expect(unsupportedOverride.qwenCloud?.manualCookieHeader == "qwen=configured")
 
         #expect(TokenAccountSupportCatalog.support(for: .raycast) == nil)
-        settings.raycastCookieSource = .manual
-        settings.raycastCookieHeader = "__raycast_session=configured"
+        settings.setCookieSource(.manual, provider: .raycast)
+        settings[providerConfig: .raycast, field: .cookieHeader] = "__raycast_session=configured"
         let raycastOverride = ProviderRegistry.makeSettingsSnapshot(
             settings: settings,
             tokenOverride: TokenAccountOverride(provider: .raycast, account: account))

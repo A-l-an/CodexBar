@@ -65,7 +65,7 @@ struct CodexCostDailySummaryTests {
             #expect(arguments.last?.contains("--daily-summary --provider-native-only") == true)
             #expect(arguments.last?.contains("--bucket-time-zone \"GMT\"") == true)
             #expect(environment["UNRELATED_TOKEN"] == nil)
-            return wire
+            return .init(stdout: wire, stderr: "")
         })
         let actual = try await fetcher.fetchDaily(
             host: "qa-linux",

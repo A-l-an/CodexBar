@@ -30,7 +30,7 @@ Pi-family processes are handed to one `PiFamilySessionScanner`:
 
 The Pi-family scan receives its own directory entry/time budget, preserving the independent Codex rollout and Claude transcript budgets. Header reads are bounded, pi name lookup uses bounded head/tail windows, future modification dates are clamped to scan time, and displayed titles are stripped of control characters and limited to 64 Unicode scalars.
 
-The same deadline also gates work after enumeration: file-type inspection, Codex modification-time reads, Pi-family path canonicalization, and queued Claude Desktop root probes stop starting work once their budget expires. An in-flight filesystem call can still finish after the deadline; this is a best-effort work budget, not an interruptible wall-clock timeout. Entry counts, depth limits, root selection, and PID-only fallback behavior are unchanged.
+The deadline also gates file-type inspection, Codex modification-time reads, Pi-family path canonicalization, and queued Claude Desktop root probes. In-flight filesystem calls can finish after the deadline; this is a best-effort work budget, not an interruptible timeout.
 
 ## Presentation and focus
 
@@ -44,21 +44,11 @@ CodexBar never invokes `ps eww`, reads `/proc/<pid>/environ`, or otherwise captu
 
 ## Stay Awake
 
-Settings → Menu → Agent Sessions includes **Stay Awake**, off by default and local to this Mac.
-It independently enables local scanning every 30 seconds, without enabling the Agent Sessions menu or
-remote discovery. CodexBar holds one `PreventUserIdleSystemSleep` assertion while the local scanner reports
-at least one positive session PID. Idle processes waiting for a prompt count; remote sessions and file-only
-rollouts do not. The menu says “Stay Awake: local agent session is live” while the assertion is held.
+Settings → Menu → Agent Sessions → **Stay Awake** is off by default and local to this Mac. It scans locally every 30 seconds without enabling the sessions menu or remote discovery. One `PreventUserIdleSystemSleep` assertion stays active while at least one session has a positive PID, including idle processes waiting for a prompt. Remote sessions and file-only rollouts do not count. The menu shows “Stay Awake: local agent session is live” while active.
 
-The assertion is released when the next scan sees no process-backed sessions, immediately when the toggle
-is turned off, or when CodexBar quits. Stale scan completions cannot acquire it after disabling or shutdown.
-macOS also releases the process-owned assertion if the app crashes. A failed acquisition is retried on the
-next scan. Stay Awake can use battery power; it does not prevent display sleep, explicit sleep, or lid-close
-sleep and cannot wake a sleeping Mac. This version has no timer, grace period, or always-on mode.
+The assertion releases at the next scan with no process-backed sessions, immediately on disablement or quit, and through macOS on a crash. Stale scans cannot reacquire it after disablement or shutdown; failed acquisitions retry on the next scan. Stay Awake can use battery power. It cannot wake a Mac or prevent display, explicit, or lid-close sleep, and has no timer, grace period, or always-on mode.
 
-## Tests
-
-Fixture directories cover pi version-3 headers and `session_info`, OMP title slots, hashed and legacy project buckets, XDG roots, resolvable custom directories, missing-JSONL PID fallbacks, process classification/correlation, one-record allocation, 64-scalar title bounds, JSON protocol compatibility, menu dialect tags, and remote v2-before-v1 negotiation. Tests use stubs and temporary roots; they do not probe live accounts, Keychain, or Accessibility.
+Final store teardown cancels its tasks and releases an owned assertion on the thread that drops the last reference, without a main-actor cleanup hop. Live state changes remain on the main actor; teardown uses Sendable task handles and the thread-safe assertion-release closure.
 
 ## Non-goals
 

@@ -5,11 +5,13 @@ import SwiftUI
 
 struct CodexSSHCostReport: Sendable {
     struct History: Sendable {
-        let dailySummary: CodexCostDailySummary
         let snapshot: CostUsageTokenSnapshot
-        let summary: CodexCostSummary
         let calendar: Calendar
         let dateRange: ClosedRange<Date>
+
+        var summary: CodexCostSummary {
+            CodexCostSummary(snapshot: self.snapshot, calendar: self.calendar)
+        }
 
         init(dailySummary: CodexCostDailySummary) throws {
             let calendar = try CodexCostDailySummary.calendar(bucketTimeZone: dailySummary.bucketTimeZone)
@@ -18,9 +20,7 @@ struct CodexSSHCostReport: Sendable {
             guard let start = calendar.date(byAdding: .day, value: -29, to: today),
                   let end = calendar.date(byAdding: .day, value: 1, to: today)
             else { throw RemoteCodexCostError.invalidReport }
-            self.dailySummary = dailySummary
             self.snapshot = snapshot
-            self.summary = CodexCostSummary(snapshot: snapshot, calendar: calendar)
             self.calendar = calendar
             self.dateRange = start...end
         }
@@ -28,6 +28,7 @@ struct CodexSSHCostReport: Sendable {
 
     let host: String
     let source: String
+    let summary: CodexCostSummary?
     let history: History?
     let error: String?
 }
@@ -37,10 +38,10 @@ struct CodexSSHCostReport: Sendable {
 @Observable
 final class CodexSSHCostQuery {
     typealias LocalLoader = @Sendable (Calendar) async throws -> CodexCostDailySummary
-    typealias RemoteLoader = @Sendable (String, Calendar) async throws -> CodexCostDailySummary
+    typealias RemoteLoader = @Sendable (String, Calendar) async throws -> RemoteCodexCostReport
 
-    nonisolated static let remoteDailyUnavailable =
-        "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary."
+    nonisolated static let remoteUnavailable =
+        "Could not read remote costs. Check SSH and that the remote CodexBar CLI supports --summary-only."
 
     private(set) var host = ""
     private(set) var reports: [CodexSSHCostReport] = []
@@ -63,7 +64,7 @@ final class CodexSSHCostQuery {
             return try CodexCostDailySummary(snapshot: snapshot, calendar: calendar)
         },
         remote: @escaping RemoteLoader = { host, calendar in
-            try await RemoteCodexCostFetcher().fetchDaily(
+            try await RemoteCodexCostFetcher().fetchReport(
                 host: host, historyDays: 30, bucketTimeZone: calendar.timeZone.identifier)
         })
     {
@@ -114,7 +115,7 @@ final class CodexSSHCostQuery {
             do {
                 try Task.checkCancellation()
                 let localReport = try await Self.readReport(host: "local", source: "local", calendar: calendar) {
-                    try await local(calendar)
+                    try await .daily(local(calendar))
                 }
                 try Task.checkCancellation()
                 self.reports.append(localReport)
@@ -152,21 +153,28 @@ final class CodexSSHCostQuery {
         host: String,
         source: String,
         calendar: Calendar,
-        operation: @Sendable () async throws -> CodexCostDailySummary) async throws -> CodexSSHCostReport
+        operation: @Sendable () async throws -> RemoteCodexCostReport) async throws -> CodexSSHCostReport
     {
         do {
-            let summary = try await operation()
+            let result = try await operation()
             try Task.checkCancellation()
-            try summary.validate(historyDays: 30, bucketTimeZone: calendar.timeZone.identifier)
-            return try .init(host: host, source: source, history: .init(dailySummary: summary), error: nil)
+            switch result {
+            case let .daily(daily):
+                try daily.validate(historyDays: 30, bucketTimeZone: calendar.timeZone.identifier)
+                let history = try CodexSSHCostReport.History(dailySummary: daily)
+                return .init(host: host, source: source, summary: history.summary, history: history, error: nil)
+            case let .summary(summary):
+                try summary.validate(historyDays: 30)
+                return .init(host: host, source: source, summary: summary, history: nil, error: nil)
+            }
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             try Task.checkCancellation()
             let message = source == "local"
                 ? "Local Codex cost history is unavailable."
-                : Self.remoteDailyUnavailable
-            return .init(host: host, source: source, history: nil, error: message)
+                : Self.remoteUnavailable
+            return .init(host: host, source: source, summary: nil, history: nil, error: message)
         }
     }
 }

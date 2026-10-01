@@ -827,6 +827,12 @@
 "Copied" = "已複製";
 "Managed by Homebrew" = "由 Homebrew 管理";
 "Copy update command" = "複製更新指令";
+"Update to %@" = "更新至 %@";
+"CodexBar %@ is available" = "CodexBar %@ 已推出";
+"CodexBar is up to date" = "CodexBar 已是最新版本";
+"Checking for updates…" = "正在檢查更新…";
+"Updating with Homebrew…" = "正在透過 Homebrew 更新…";
+"Homebrew update failed. You can run this command in Terminal instead:" = "Homebrew 更新失敗。你也可以在終端機中執行此指令：";
 "Copy error" = "複製錯誤";
 "Copy path" = "複製路徑";
 "Extra usage spent" = "額外使用量支出";
@@ -1681,3 +1687,5 @@
 
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "使用原生 Codex 歷史記錄。SSH 主機上的 CodexBar CLI 需支援 --daily-summary。";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "無法讀取每日費用。請檢查 SSH，並更新遠端 CodexBar CLI，使其支援 --daily-summary。";
+
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "每日圖表不可用。更新遠端 CodexBar CLI 即可啟用。";

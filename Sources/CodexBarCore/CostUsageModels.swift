@@ -16,14 +16,6 @@ package struct CostUsageTokenActivityCache: Sendable, Equatable {
     }
 }
 
-package enum CostUsageIncompleteRequests {
-    /// Reject malformed persisted counts at decode boundaries. Saturate combined reports so
-    /// overflow cannot erase the incomplete marker or crash a consumer.
-    package static func sum(_ counts: some Sequence<Int>) -> Int {
-        CheckedSum.integers(counts.map { max(0, $0) }) ?? Int.max
-    }
-}
-
 public struct CostUsageWindowSummary: Sendable, Equatable {
     public let days: Int
     public let totalTokens: Int?
@@ -125,6 +117,13 @@ public struct CostUsageSessionBreakdown: Sendable, Equatable, Identifiable {
     public let requestCount: Int?
     public let costUSD: Double?
     public let modelBreakdowns: [CostUsageDailyReport.ModelBreakdown]
+    /// Canonical project path, matching the key of the session's Projects row.
+    public let projectPath: String?
+    public let projectName: String?
+    /// Thread name from Codex metadata, when one exists.
+    public private(set) var title: String?
+    /// Original rollout directory; relative SQLite homes must not use the canonical project path.
+    var workingDirectory: String?
 
     public var id: String {
         self.sessionID
@@ -140,7 +139,10 @@ public struct CostUsageSessionBreakdown: Sendable, Equatable, Identifiable {
         totalTokens: Int?,
         requestCount: Int?,
         costUSD: Double?,
-        modelBreakdowns: [CostUsageDailyReport.ModelBreakdown])
+        modelBreakdowns: [CostUsageDailyReport.ModelBreakdown],
+        projectPath: String? = nil,
+        projectName: String? = nil,
+        title: String? = nil)
     {
         self.sessionID = sessionID
         self.lastActivity = lastActivity
@@ -152,6 +154,15 @@ public struct CostUsageSessionBreakdown: Sendable, Equatable, Identifiable {
         self.requestCount = requestCount
         self.costUSD = costUSD
         self.modelBreakdowns = modelBreakdowns
+        self.projectPath = projectPath
+        self.projectName = projectName
+        self.title = title
+    }
+
+    public func withTitle(_ title: String?) -> CostUsageSessionBreakdown {
+        var copy = self
+        copy.title = title
+        return copy
     }
 }
 
@@ -1563,19 +1574,48 @@ enum CostUsageBucketInterval {
 }
 
 enum CostUsageLocalDay {
+    private static let cache = Cache()
+
+    /// Only calendar arithmetic is shared: no account, provider, path, or usage data is retained.
+    final class Cache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var memos: [TimeZone: CostUsageLocalDayKeyMemo] = [:]
+
+        func withMemo<T>(calendar: Calendar, body: (inout CostUsageLocalDayKeyMemo) -> T) -> T {
+            self.lock.withLock {
+                let zone = calendar.timeZone
+                if self.memos[zone] == nil {
+                    if self.memos.count == 8 { self.memos.removeAll(keepingCapacity: true) }
+                    self.memos[zone] = CostUsageLocalDayKeyMemo(calendar: calendar)
+                }
+                return body(&self.memos[zone]!)
+            }
+        }
+    }
+
     static func gregorianCalendar(matching calendar: Calendar = .current) -> Calendar {
-        var gregorian = Calendar(identifier: .gregorian)
-        gregorian.timeZone = calendar.timeZone
-        return gregorian
+        self.cache.withMemo(calendar: calendar) { $0.calendar }
     }
 
     static func key(from date: Date, calendar: Calendar = .current) -> String {
-        let calendar = Self.gregorianCalendar(matching: calendar)
+        self.cache.withMemo(calendar: calendar) { $0.key(for: date, calendar: calendar) }
+    }
+
+    static func uncachedKey(from date: Date, calendar: Calendar) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: date)
-        let year = components.year ?? 0
-        let month = components.month ?? 0
-        let day = components.day ?? 0
-        return String(format: "%04d-%02d-%02d", year, month, day)
+        return Self.key(year: components.year ?? 0, month: components.month ?? 0, day: components.day ?? 0)
+    }
+
+    static func key(year: Int, month: Int, day: Int) -> String {
+        func padded(_ value: Int, width: Int) -> String {
+            // Preserve printf's signed 32-bit %d conversion, including unusual component values.
+            let value = Int32(truncatingIfNeeded: value)
+            let digits = String(value.magnitude)
+            let sign = value < 0 ? "-" : ""
+            let zeros = String(repeating: "0", count: max(0, width - sign.utf8.count - digits.utf8.count))
+            return "\(sign)\(zeros)\(digits)"
+        }
+        return "\(padded(year, width: 4))-\(padded(month, width: 2))-\(padded(day, width: 2))"
     }
 
     static func date(fromKey key: String, calendar: Calendar = .current) -> Date? {
@@ -1597,23 +1637,27 @@ enum CostUsageLocalDay {
 /// y-m-d from the same Gregorian-in-timezone calendar whose `.day` interval is cached here, so the memo can never
 /// disagree with computing the key per entry (DST days are simply 23 h / 25 h intervals).
 struct CostUsageLocalDayKeyMemo {
+    private(set) var calendar: Calendar
     var start = Date.distantPast
     var end = Date.distantPast
     var key = ""
 
-    mutating func key(for timestamp: Date, calendar: Calendar) -> String {
-        if timestamp >= self.start, timestamp < self.end {
-            return self.key
-        }
-        let dayCalendar = CostUsageLocalDay.gregorianCalendar(matching: calendar)
-        guard let interval = dayCalendar.dateInterval(of: .day, for: timestamp) else {
-            self.start = Date.distantPast
-            self.end = Date.distantPast
-            return CostUsageLocalDay.key(from: timestamp, calendar: calendar)
-        }
-        self.start = interval.start
-        self.end = interval.end
-        self.key = CostUsageLocalDay.key(from: timestamp, calendar: calendar)
+    init(calendar: Calendar = .current) {
+        self.calendar = Calendar(identifier: .gregorian)
+        self.calendar.timeZone = calendar.timeZone
+    }
+
+    mutating func key(
+        for timestamp: Date,
+        calendar: Calendar,
+        build: (Date, Calendar) -> String = CostUsageLocalDay.uncachedKey) -> String
+    {
+        if self.calendar.timeZone != calendar.timeZone { self = Self(calendar: calendar) }
+        if timestamp >= self.start, timestamp < self.end { return self.key }
+        let interval = self.calendar.dateInterval(of: .day, for: timestamp)
+        self.start = interval?.start ?? .distantPast
+        self.end = interval?.end ?? .distantPast
+        self.key = build(timestamp, self.calendar)
         return self.key
     }
 }

@@ -1,73 +1,52 @@
 import Foundation
 
 public enum RaycastProviderDescriptor {
-    public static let descriptor: ProviderDescriptor = Self.makeDescriptor()
-
-    static func makeDescriptor() -> ProviderDescriptor {
-        ProviderDescriptor(
-            id: .raycast,
-            menuBarMetrics: ProviderMenuBarMetricCapabilities(supported: [.automatic, .primary]),
+    public static let descriptor: ProviderDescriptor = Self.spec.makeDescriptor()
+    public static let spec = PluginProviderSpec(
+        id: .raycast,
+        displayName: "Raycast",
+        sessionLabel: "Credits",
+        weeklyLabel: "Plan",
+        usesDetailBackedWindow: true,
+        dashboardURL: "https://www.raycast.com/settings",
+        color: .init(hex: 0xFF6363),
+        confetti: [0xFF6363, 0xFF8C8C, 0x1A1A1A],
+        noDataMessage: "Raycast AI credits are a monthly allowance, not a cost history.",
+        menuBarMetrics: ProviderMenuBarMetricCapabilities(supported: [.automatic, .primary]),
+        presentation: ProviderUsagePresentation(
+            menuCard: ProviderMenuCardPresentation(
+                showsPrimaryBalanceDescription: true,
+                hidesPrimaryResetWithoutDate: true),
+            menu: ProviderMenuDescriptorPresentation(
+                primaryDescriptionIsDetail: { _ in true }),
+            planRow: ProviderPlanRowPresentation(label: "Plan")),
+        webSource: .init(
             settingsSection: .init(RaycastProviderSettingsKey.self, cookieSettings: CookieProviderSettings.self),
-            metadata: ProviderMetadata(
-                id: .raycast,
-                displayName: "Raycast",
-                sessionLabel: "Credits",
-                weeklyLabel: "Plan",
-                opusLabel: nil,
-                supportsOpus: false,
-                supportsCredits: false,
-                creditsHint: "",
-                toggleTitle: "Show Raycast usage",
-                cliName: "raycast",
-                defaultEnabled: false,
-                widgetSelectable: false,
-                isPrimaryProvider: false,
-                usesAccountFallback: false,
-                usesDetailBackedWindow: true,
-                browserCookieOrder: BrowserCookieImportSupport.chromeOnly(
-                    reason: "Raycast imports only Chrome to avoid unrelated browser prompts."),
-                dashboardURL: "https://www.raycast.com/settings",
-                statusPageURL: nil),
-            branding: ProviderBranding(
-                iconStyle: .init(provider: .raycast),
-                iconResourceName: "ProviderIcon-raycast",
-                color: ProviderColor(hex: 0xFF6363),
-                confettiPalette: [
-                    ProviderColor(hex: 0xFF6363),
-                    ProviderColor(hex: 0xFF8C8C),
-                    ProviderColor(hex: 0x1A1A1A),
-                ]),
-            tokenCost: ProviderTokenCostConfig(
-                supportsTokenCost: false,
-                noDataMessage: { "Raycast AI credits are a monthly allowance, not a cost history." }),
-            presentation: ProviderUsagePresentation(
-                menuCard: ProviderMenuCardPresentation(
-                    showsPrimaryBalanceDescription: true,
-                    hidesPrimaryResetWithoutDate: true),
-                menu: ProviderMenuDescriptorPresentation(
-                    primaryDescriptionIsDetail: { _ in true }),
-                planRow: ProviderPlanRowPresentation(label: "Plan")),
-            fetchPlan: ProviderFetchPlan(
-                sourceModes: [.auto, .web],
-                pipeline: ProviderFetchPipeline(resolveStrategies: { context in
-                    [ScriptFetchStrategy(
-                        id: "raycast.js",
-                        provider: .raycast,
-                        bundledPlugin: "raycast",
-                        sourceLabel: "web",
-                        kind: .web,
-                        timeout: max(30, context.webTimeout.isFinite ? context.webTimeout : 30),
-                        resolveValues: { context in
-                            guard context.settings?.raycast?.cookieSource != .off else { return nil }
-                            return .init(settings: ["webTimeoutSeconds": String(context.webTimeout)])
-                        },
-                        isEnabled: { _ in true })]
-                })),
-            cli: ProviderCLIConfig(
-                name: "raycast",
-                versionDetector: nil,
-                browserSupportExemption: { _, _, settings in
-                    settings?.raycast?.cookieSource == .manual
-                }))
-    }
+            browserCookieOrder: BrowserCookieImportSupport.chromeOnly(
+                reason: "Raycast imports only Chrome to avoid unrelated browser prompts."),
+            timeout: .web(minimum: 30, maximum: .infinity, padding: 0, nonFinite: 30),
+            browserSupportExemption: { _, _, settings in
+                settings?.raycast?.cookieSource == .manual
+            },
+            resolveValues: { context in
+                guard context.settings?.raycast?.cookieSource != .off else { return nil }
+                return .init(settings: ["webTimeoutSeconds": String(context.webTimeout)])
+            },
+            field: .init(
+                id: "raycast-cookie-header",
+                title: "Cookie header",
+                subtitle: "Paste the Cookie header from a www.raycast.com/settings request. It must contain __raycast_session.",
+                placeholder: "__raycast_session=…; csrf_token=…",
+                action: (
+                    id: "raycast-open-settings",
+                    title: "Open Raycast Account",
+                    url: "https://www.raycast.com/settings")),
+            picker: .init(
+                id: "raycast-cookie-source",
+                allowsOff: true,
+                auto: .localized("Automatic imports Chrome cookies from www.raycast.com."),
+                manual: .localized("Paste a Cookie header captured from %@.", argument: "the account settings page"),
+                off: .localized("%@ cookies are disabled.", argument: "Raycast"),
+                showsRefreshAction: true),
+            detailLine: "web"))
 }

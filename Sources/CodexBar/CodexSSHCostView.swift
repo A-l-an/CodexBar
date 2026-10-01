@@ -48,7 +48,7 @@ struct CodexSSHCostView: View {
                 .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("ssh-cost-refresh")
             }
-            Text(L("Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary."))
+            Text(L("Uses native Codex history. The SSH host needs a compatible CodexBar CLI."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -84,26 +84,33 @@ struct CodexSSHCostView: View {
         let report = self.query.reports.first { $0.source == source }
         return GroupBox {
             VStack(alignment: .leading, spacing: 10) {
-                if let history = report?.history {
-                    let summary = history.summary
+                if let summary = report?.summary {
                     self.windowLine(L("Today"), summary.today)
                     self.windowLine(L("Last 30 days"), summary.history)
-                    CostHistoryChartMenuView(
-                        provider: .codex,
-                        daily: history.snapshot.daily,
-                        totalCostUSD: history.snapshot.last30DaysCostUSD,
-                        costLabelFormatter: { Self.amountText($0) },
-                        historyCoverageIsEstablished: history.snapshot.historyCoverageIsEstablished,
-                        historyIsRefreshing: false,
-                        calendar: history.calendar,
-                        dateRange: history.dateRange,
-                        hidePersonalInfo: self.hidePersonalInfo,
-                        width: max(0, width - 32))
-                        .accessibilityIdentifier("ssh-cost-chart-\(source)")
+                    if let history = report?.history {
+                        CostHistoryChartMenuView(
+                            provider: .codex,
+                            daily: history.snapshot.daily,
+                            totalCostUSD: history.snapshot.last30DaysCostUSD,
+                            costLabelFormatter: { Self.amountText($0) },
+                            historyCoverageIsEstablished: history.snapshot.historyCoverageIsEstablished,
+                            historyIsRefreshing: false,
+                            calendar: history.calendar,
+                            dateRange: history.dateRange,
+                            hidePersonalInfo: self.hidePersonalInfo,
+                            width: max(0, width - 32))
+                            .accessibilityIdentifier("ssh-cost-chart-\(source)")
+                    } else {
+                        Text(L("Daily charts unavailable. Update the remote CodexBar CLI to enable them."))
+                            .foregroundStyle(.secondary)
+                    }
                     Text(L("Snapshot updated: %@", summary.updatedAt.ISO8601Format()))
                         .monospacedDigit()
                     Text(L("Day boundaries: %@", summary.bucketTimeZone))
-                    ForEach(Self.coverageHints(history), id: \.self) { hint in
+                    ForEach(Self.coverageHints(
+                        summary,
+                        historyScanIsPartial: report?.history?.snapshot.historyScanIsPartial ?? false), id: \.self)
+                    { hint in
                         Text(hint).foregroundStyle(.secondary)
                     }
                 } else if let error = report?.error {
@@ -145,10 +152,9 @@ struct CodexSSHCostView: View {
         return hidden || trimmed.isEmpty ? L("SSH host") : trimmed
     }
 
-    static func coverageHints(_ history: CodexSSHCostReport.History) -> [String] {
-        let summary = history.summary
+    static func coverageHints(_ summary: CodexCostSummary, historyScanIsPartial: Bool = false) -> [String] {
         var hints: [String] = []
-        if !summary.historyCoverageIsEstablished || history.dailySummary.historyScanIsPartial {
+        if !summary.historyCoverageIsEstablished || historyScanIsPartial {
             hints.append(L("Partial history; scan is incomplete."))
         }
         if [summary.today, summary.history].contains(where: { $0.coverage.unpriced > 0 || $0.coverage.unmetered > 0 }) {

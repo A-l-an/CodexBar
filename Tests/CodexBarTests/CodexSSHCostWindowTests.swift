@@ -44,7 +44,7 @@ struct CodexSSHCostWindowTests {
         let summary = try Self.summary()
         let query = CodexSSHCostQuery(
             local: { _ in await calls.record("local"); return summary },
-            remote: { _, _ in await calls.record("remote"); return summary })
+            remote: { _, _ in await calls.record("remote"); return .daily(summary) })
         #expect(!query.isRunning)
         #expect(query.reports.isEmpty)
         #expect(await calls.values.isEmpty)
@@ -71,7 +71,7 @@ struct CodexSSHCostWindowTests {
             remote: { host, _ in
                 await calls.record(host)
                 if remoteFails { throw FixtureError.privatePath }
-                return remote
+                return .daily(remote)
             })
         query.setHost("  research-server  ")
         query.refresh(calendar: Self.calendar)
@@ -81,10 +81,10 @@ struct CodexSSHCostWindowTests {
         #expect(query.reports.count == 2)
         #expect(query.reports[0].source == "local")
         #expect(query.reports[1].host == "research-server")
-        #expect(query.reports[0].history?.dailySummary == (localFails ? nil : local))
-        #expect(query.reports[1].history?.dailySummary == (remoteFails ? nil : remote))
+        #expect(query.reports[0].summary?.today.costUSD == (localFails ? nil : 1.25))
+        #expect(query.reports[1].summary?.today.costUSD == (remoteFails ? nil : 2.5))
         #expect(query.reports[0].error == (localFails ? "Local Codex cost history is unavailable." : nil))
-        #expect(query.reports[1].error == (remoteFails ? CodexSSHCostQuery.remoteDailyUnavailable : nil))
+        #expect(query.reports[1].error == (remoteFails ? CodexSSHCostQuery.remoteUnavailable : nil))
         #expect(!query.isRunning)
         query.setHost("other-server")
         #expect(query.reports.isEmpty)
@@ -101,12 +101,12 @@ struct CodexSSHCostWindowTests {
             local: { _ in summary },
             remote: { _, _ in
                 await calls.record("remote")
-                return await gate.load()
+                return await .daily(gate.load())
             })
         query.setHost("first-server")
         query.refresh(calendar: Self.calendar)
         await gate.waitUntilStarted()
-        #expect(query.reports.first?.history?.dailySummary == summary)
+        #expect(query.reports.first?.summary?.today.totalTokens == 1000)
         query.setHost("ignored-while-running")
         #expect(query.host == "first-server")
 
@@ -132,7 +132,7 @@ struct CodexSSHCostWindowTests {
         let gate = Gate()
         let query = CodexSSHCostQuery(
             local: { _ in await gate.load() },
-            remote: { _, _ in await calls.record("remote"); return summary })
+            remote: { _, _ in await calls.record("remote"); return .daily(summary) })
         query.setHost("test-server")
         query.refresh(calendar: Self.calendar)
         await gate.waitUntilStarted()
@@ -151,7 +151,9 @@ struct CodexSSHCostWindowTests {
         #expect(CodexSSHCostView.amountText(1.25) == "$1.25")
         let summary = try Self.summary(cost: nil, complete: false, unpriced: 2, incomplete: 3)
         let history = try CodexSSHCostReport.History(dailySummary: summary)
-        let hints = CodexSSHCostView.coverageHints(history)
+        let hints = CodexSSHCostView.coverageHints(
+            history.summary,
+            historyScanIsPartial: history.snapshot.historyScanIsPartial)
         #expect(hints.contains("Partial history; scan is incomplete."))
         #expect(hints.contains("Some usage has no known price."))
         #expect(hints.contains("Today: 3 incomplete requests excluded."))
@@ -225,7 +227,7 @@ struct CodexSSHCostWindowTests {
             },
             remote: { host, calendar in
                 await calls.record("\(host):\(calendar.identifier):\(calendar.timeZone.identifier)")
-                return daily
+                return .daily(daily)
             })
         query.setHost("fixture-server")
         query.refresh(calendar: calendar)
@@ -251,33 +253,103 @@ struct CodexSSHCostWindowTests {
     @Test
     func `finished partial history still warns even after coverage was established`() async throws {
         let daily = try Self.summary(complete: true, partial: true)
-        let query = CodexSSHCostQuery(local: { _ in daily }, remote: { _, _ in daily })
+        let query = CodexSSHCostQuery(local: { _ in daily }, remote: { _, _ in .daily(daily) })
         query.setHost("fixture-server")
         query.refresh(calendar: Self.calendar)
         await query.waitUntilIdle()
         let history = try #require(query.reports.first?.history)
         #expect(!query.isRunning)
         #expect(history.snapshot.historyScanIsPartial)
-        #expect(CodexSSHCostView.coverageHints(history).contains("Partial history; scan is incomplete."))
+        #expect(CodexSSHCostView.coverageHints(
+            history.summary,
+            historyScanIsPartial: history.snapshot.historyScanIsPartial)
+            .contains("Partial history; scan is incomplete."))
     }
 
-    @Test
-    func `mismatched remote timezone fails independently with daily CLI guidance`() async throws {
+    @Test(arguments: [false, true], [false, true])
+    func `aggregate success retains remote totals coverage timestamp and timezone without charts`(
+        unknown: Bool, localFails: Bool) async throws
+    {
         let local = try Self.summary()
-        let wrongZone = try Self.summary(timeZone: "Asia/Shanghai")
-        let query = CodexSSHCostQuery(local: { _ in local }, remote: { _, _ in wrongZone })
+        let daily = try Self.summary(
+            cost: unknown ? nil : 0,
+            updatedAt: "2026-05-01T08:00:00Z",
+            timeZone: "Asia/Tokyo",
+            complete: false,
+            unpriced: unknown ? 2 : 0,
+            incomplete: 3)
+        let remote = try CodexCostSummary(
+            snapshot: daily.tokenSnapshot(),
+            calendar: CodexCostDailySummary.calendar(bucketTimeZone: daily.bucketTimeZone))
+        let query = CodexSSHCostQuery(
+            local: { _ in
+                if localFails { throw FixtureError.privatePath }
+                return local
+            },
+            remote: { _, _ in .summary(remote) })
         query.setHost("fixture-server")
         query.refresh(calendar: Self.calendar)
         await query.waitUntilIdle()
-        #expect(query.reports.first?.history?.dailySummary == local)
+        let report = try #require(query.reports.last)
+        let summary = try #require(report.summary)
+        #expect(report.error == nil)
+        #expect(report.history == nil)
+        #expect(summary == remote)
+        #expect(summary.today.totalTokens == 1000)
+        #expect(summary.history.totalTokens == 1000)
+        #expect(summary.today.costUSD == (unknown ? nil : 0))
+        #expect(summary.bucketTimeZone == "Asia/Tokyo")
+        #expect(summary.updatedAt == ISO8601DateFormatter().date(from: "2026-05-01T08:00:00Z"))
+        let hints = CodexSSHCostView.coverageHints(summary)
+        #expect(hints.contains("Partial history; scan is incomplete."))
+        #expect(hints.contains("Some usage has no known price.") == unknown)
+        #expect(hints.contains("Today: 3 incomplete requests excluded."))
+        #expect(hints.contains("Last 30 days: 3 incomplete requests excluded."))
+        #expect((query.reports.first?.summary != nil) == !localFails)
+    }
+
+    @Test
+    func `cancel discards a late aggregate success and keeps the completed local chart`() async throws {
+        let daily = try Self.summary()
+        let gate = Gate()
+        let query = CodexSSHCostQuery(
+            local: { _ in daily },
+            remote: { _, _ in
+                let selected = await gate.load()
+                return try .summary(CodexCostSummary(
+                    snapshot: selected.tokenSnapshot(),
+                    calendar: CodexCostDailySummary.calendar(bucketTimeZone: selected.bucketTimeZone)))
+            })
+        query.setHost("fixture-server")
+        query.refresh(calendar: Self.calendar)
+        await gate.waitUntilStarted()
+        query.cancel()
+        await gate.release(daily)
+        await query.waitUntilIdle()
+        #expect(query.reports.count == 1)
+        #expect(query.reports.first?.history?.snapshot.daily.first?.totalTokens == 1000)
+        #expect(query.reports.first?.summary?.history.costUSD == 1.25)
+        #expect(query.message == "Cancelled")
+        #expect(!query.isRunning)
+    }
+
+    @Test
+    func `mismatched daily timezone fails independently with remote CLI guidance`() async throws {
+        let local = try Self.summary()
+        let wrongZone = try Self.summary(timeZone: "Asia/Shanghai")
+        let query = CodexSSHCostQuery(local: { _ in local }, remote: { _, _ in .daily(wrongZone) })
+        query.setHost("fixture-server")
+        query.refresh(calendar: Self.calendar)
+        await query.waitUntilIdle()
+        #expect(query.reports.first?.summary?.today.totalTokens == 1000)
         #expect(query.reports.last?.history == nil)
-        #expect(query.reports.last?.error?.contains("--daily-summary") == true)
+        #expect(query.reports.last?.error?.contains("--summary-only") == true)
     }
 
     @Test
     func `closing the window clears completed reports without starting another query`() async throws {
         let daily = try Self.summary()
-        let query = CodexSSHCostQuery(local: { _ in daily }, remote: { _, _ in daily })
+        let query = CodexSSHCostQuery(local: { _ in daily }, remote: { _, _ in .daily(daily) })
         let controller = CodexSSHCostWindowController(query: query, content: EmptyView())
         query.setHost("fixture-server")
         query.refresh(calendar: Self.calendar)

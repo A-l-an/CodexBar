@@ -34,6 +34,19 @@ read_when:
 4. **Optional file log**: enable Debug → Logging → "Enable file logging" to write
    `~/Library/Logs/CodexBar/CodexBar.log` (verbosity defaults to "Verbose")
 
+## Swift Toolchain Compatibility
+
+The package supports Swift 6.2, including Xcode 26.3 on macOS 15. CI's
+`swift-build-macos-compatibility` job builds the app, CLI, and all test targets
+with that Xcode version using `swift build --build-tests`, without running them.
+It uses the existing macOS path gate, including every Swift change, and runs on
+draft PRs too. The aggregate `lint-build-test` gate requires a successful build
+when applicable; docs-only changes may skip it. Runtime tests remain on newer Xcode.
+
+Keep large initializer and `#expect` expressions simple: bind intermediate values
+to explicitly typed locals when the Swift 6.2 type checker struggles. Use
+`ProviderColor(hex:)` for provider colors instead of arithmetic inside spec initializers.
+
 ## Keychain Prompts (Development)
 
 ### First Launch After Fresh Clone
@@ -141,12 +154,46 @@ items. AppKit exposes no public factory taking an autosave name, so zero-length 
 manager enumerates an item inside AppKit's factory. These tests also do not establish the writer of a position that
 changes after launch; recurring placement and Bartender UUID behavior still require isolated runtime evidence.
 
-Runtime removal and visibility changes preserve the current saved position if AppKit clears it. This also covers
-status-menu Quit, which removes items before AppKit termination begins. The deterministic tests use in-memory
-defaults; native proof must use a signed, isolated app with a visibly hosted item and exercise removal/recreation,
-hide/show, and removal before termination. This does not diagnose older out-of-range placement reports.
+Runtime removal and visibility changes preserve the current saved position if AppKit clears it. Runtime removal
+hides the item under its stable name, removes it with that name intact, then retires the autosave identity to prevent
+later cleanup from clearing the restored position. This includes startup visibility recovery when Control Center
+has not hosted the items yet: resetting a visible item's name before removal exposes a new automatic identity to
+menu bar managers. Replacement items keep the existing `codexbar-merged` and `codexbar-<provider>` names. During
+`applicationWillTerminate`, removal instead keeps the identity intact: renaming a host immediately before exit can
+leave a blank Control Center slot on macOS 26.6.2. Status-menu Quit requests termination after menu tracking unwinds
+and leaves cleanup to that callback; shutdown detaches menus without hiding or renaming the items before removal.
+The deterministic tests use in-memory defaults, an injected recording status bar, and a hosting probe that misses
+the first startup sample to check recovery and teardown ordering, identity, visibility, and placement restoration.
+They compare already-hosted relaunches with delayed hosting; they do not reproduce Sparkle or Bartender's UUID store.
+Native proof must use a signed, isolated app with visibly hosted
+merged and provider items: record the exact old window IDs, quit normally, confirm those windows disappear, then
+relaunch and check custom positions. Also exercise runtime removal/recreation and hide/show. Unit tests cannot prove
+Control Center host removal or placement after process exit. This does not diagnose older out-of-range placement reports.
 
 ### Run Tests Only
+
+The shell test runners and all Make test targets source `Scripts/test_environment.sh` before launching Swift.
+The Linux CI test step sources it too. It removes exported variables whose names contain `TOKEN`, `KEY`, `SECRET`,
+`PASSWORD`, `PASSWD`, `WEBHOOK`, `CREDENTIAL`, `COOKIE`, `PRIVATE`, or `_PAT`, ignoring case. Explicit non-secret
+exceptions preserve `CODEXBAR_ALLOW_TEST_KEYCHAIN_ACCESS`, `CODEXBAR_SUPPRESS_TEST_KEYCHAIN_ACCESS`,
+`CODEXBAR_DISABLE_KEYCHAIN_ACCESS`, and `CODEXBAR_USE_LOCAL_SWEETCOOKIEKIT`. Standard build and loader search paths
+(`LD_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`, `DYLD_FRAMEWORK_PATH`, `LIBRARY_PATH`, and `PKG_CONFIG_PATH`) are also preserved:
+their `_PATH` suffix otherwise matches `_PAT`. Other matching variables, including `CODEXBAR_*` credentials, are removed.
+Use synthetic dictionaries or set synthetic sentinels inside fixtures; never depend on inherited real credentials.
+For direct `swift test`, source the script in a Bash subshell first. This does not authorize live account tests.
+
+`@ProcessEnvironment` provides count-only descriptions and reflection for stored process-environment dictionaries
+throughout the app, CLI, provider contexts, and session scanners. Use it on every stored environment, including
+captured configuration structs and optional dictionaries. Optional storage preserves `nil` versus an empty map;
+equality still compares the original contents. Keep formerly immutable properties `private(set)`.
+Explicit dictionary access still returns the original values for provider/subprocess use; never log that dictionary.
+Harness scrubbing remains essential and does not replace a review of debug output before sharing it.
+
+`ProcessEnvironmentStorageTests` scans shipped Swift in `Sources/` and `WidgetExtension/` for environment-named
+dictionary declarations (including optional, multiline, and `Dictionary<String, String>` spellings). This lexical
+tripwire checks locals too; its exact-source allowlist documents only transient dictionaries and rejects stale or
+duplicate exceptions. Computed getters and function parameters are not storage. Inferred types, aliases, differently
+named dictionaries, and explicit dictionary logging still require code review; this is not a Swift dataflow analyzer.
 
 Lint tools are installed at repository-pinned versions by `Scripts/install_lint_tools.sh`, with archive checksums
 verified before installation. TypeScript 7 installs its native package for the running Node platform and architecture

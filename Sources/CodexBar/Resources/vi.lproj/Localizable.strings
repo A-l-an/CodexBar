@@ -956,6 +956,12 @@
 "Copied" = "Đã sao chép";
 "Managed by Homebrew" = "Được quản lý bằng Homebrew";
 "Copy update command" = "Sao chép lệnh cập nhật";
+"Update to %@" = "Cập nhật lên %@";
+"CodexBar %@ is available" = "Đã có CodexBar %@";
+"CodexBar is up to date" = "CodexBar đã được cập nhật";
+"Checking for updates…" = "Đang kiểm tra bản cập nhật…";
+"Updating with Homebrew…" = "Đang cập nhật bằng Homebrew…";
+"Homebrew update failed. You can run this command in Terminal instead:" = "Cập nhật bằng Homebrew không thành công. Bạn có thể chạy lệnh này trong Terminal:";
 "Copy error" = "Lỗi sao chép";
 "Copy path" = "Sao chép đường dẫn";
 "Extra usage spent" = "Thêm Mức sử dụng đã chi tiêu";
@@ -1651,3 +1657,5 @@
 
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Sử dụng lịch sử gốc của Codex. Máy chủ SSH cần CodexBar CLI hỗ trợ --daily-summary.";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "Không thể đọc chi phí hằng ngày. Hãy kiểm tra SSH và cập nhật CodexBar CLI từ xa để hỗ trợ --daily-summary.";
+
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Daily charts unavailable. Update the remote CodexBar CLI to enable them.";

@@ -1,3 +1,4 @@
+import Crypto
 import Foundation
 
 struct CostUsageClaudeFileStamp: Equatable, Sendable, Codable {
@@ -15,17 +16,15 @@ struct CostUsageClaudeFileStamp: Equatable, Sendable, Codable {
         guard url.path.withCString({ fstatat(AT_FDCWD, $0, &info, 0) }) == 0 else { return nil }
         guard info.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG) else { return nil }
         #if os(Linux)
-        let modifiedSeconds = Int64(info.st_mtim.tv_sec)
-        let modifiedNanoseconds = Int64(info.st_mtim.tv_nsec)
+        let modifiedTime = info.st_mtim
         #else
-        let modifiedSeconds = Int64(info.st_mtimespec.tv_sec)
-        let modifiedNanoseconds = Int64(info.st_mtimespec.tv_nsec)
+        let modifiedTime = info.st_mtimespec
         #endif
         return Self(
             fileID: "\(info.st_dev):\(info.st_ino)",
             size: Int64(info.st_size),
-            modifiedSeconds: modifiedSeconds,
-            modifiedNanoseconds: modifiedNanoseconds)
+            modifiedSeconds: Int64(modifiedTime.tv_sec),
+            modifiedNanoseconds: Int64(modifiedTime.tv_nsec))
     }
 }
 
@@ -81,11 +80,6 @@ final class CostUsageClaudeReportMemo: @unchecked Sendable {
     /// Bump when bundled pricing, model aliases, or daily-report aggregation changes without new artifact stamps.
     static let reportSemanticsVersion = 6
 
-    private struct StoredEntry {
-        let entry: Entry
-        let generation: UInt64
-    }
-
     private struct PersistedEnvelope: Codable {
         var version: Int
         var reportSemanticsVersion: Int
@@ -99,27 +93,19 @@ final class CostUsageClaudeReportMemo: @unchecked Sendable {
 
     private let lock = NSLock()
     private let capacity = 8
-    private var generation: UInt64 = 0
-    private var entries: [String: StoredEntry] = [:]
+    private var entries: [(key: String, entry: Entry)] = []
 
     func entry(provider: UsageProvider, canonicalCachePath: String) -> Entry? {
         let key = Self.key(provider: provider, canonicalCachePath: canonicalCachePath)
-        self.lock.lock()
-        if let memory = self.entries[key]?.entry {
-            self.lock.unlock()
+        if let memory = self.lock.withLock({ self.entries.first(where: { $0.key == key })?.entry }) {
             return memory
         }
-        self.lock.unlock()
-
         guard let persisted = Self.loadPersisted(canonicalCachePath: canonicalCachePath) else { return nil }
-
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        if let memory = self.entries[key]?.entry {
-            return memory
+        return self.lock.withLock {
+            if let memory = self.entries.first(where: { $0.key == key })?.entry { return memory }
+            self.installUnlocked(key: key, entry: persisted)
+            return persisted
         }
-        self.installUnlocked(key: key, entry: persisted)
-        return persisted
     }
 
     func store(
@@ -136,34 +122,22 @@ final class CostUsageClaudeReportMemo: @unchecked Sendable {
             reportKey: reportKey,
             report: report,
             hasWindowScopedRows: hasWindowScopedRows)
-        self.lock.lock()
-        self.installUnlocked(key: key, entry: entry)
-        self.lock.unlock()
+        self.lock.withLock { self.installUnlocked(key: key, entry: entry) }
         Self.persist(entry, canonicalCachePath: canonicalCachePath)
     }
 
     #if DEBUG
     func evict(provider: UsageProvider, canonicalCachePath: String) {
         let key = Self.key(provider: provider, canonicalCachePath: canonicalCachePath)
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        self.entries.removeValue(forKey: key)
+        self.lock.withLock { self.entries.removeAll { $0.key == key } }
     }
 
-    func evictPersisted(canonicalCachePath: String) {
-        let url = Self.reportMemoFileURL(cacheFileURL: URL(fileURLWithPath: canonicalCachePath))
-        try? FileManager.default.removeItem(at: url)
-    }
     #endif
 
     private func installUnlocked(key: String, entry: Entry) {
-        self.generation &+= 1
-        self.entries[key] = StoredEntry(entry: entry, generation: self.generation)
-        if self.entries.count > self.capacity,
-           let oldest = self.entries.min(by: { $0.value.generation < $1.value.generation })?.key
-        {
-            self.entries.removeValue(forKey: oldest)
-        }
+        self.entries.removeAll { $0.key == key }
+        self.entries.append((key: key, entry: entry))
+        if self.entries.count > self.capacity { self.entries.removeFirst() }
     }
 
     private static func key(provider: UsageProvider, canonicalCachePath: String) -> String {
@@ -179,12 +153,14 @@ final class CostUsageClaudeReportMemo: @unchecked Sendable {
 
     private static func loadPersisted(canonicalCachePath: String) -> Entry? {
         let url = Self.reportMemoFileURL(cacheFileURL: URL(fileURLWithPath: canonicalCachePath))
-        guard let data = try? Data(contentsOf: url),
+        let stamp = CostUsageClaudeFileStamp.read(at: url)
+        guard let data = CostUsageClaudeCacheIO.read(at: url),
               let envelope = try? JSONDecoder().decode(PersistedEnvelope.self, from: data),
               envelope.version == Self.persistedVersion,
               envelope.reportSemanticsVersion == Self.reportSemanticsVersion,
               Self.hasValidIncompleteCounts(envelope.report)
         else { return nil }
+        CostUsageClaudeCacheIO.remember(data: data, at: url, stamp: stamp)
         return Entry(
             sourceInventory: envelope.sourceInventory,
             reportKey: envelope.reportKey,
@@ -223,8 +199,13 @@ extension CostUsageScanner {
         case transcriptParse(startOffset: Int64)
         case reconcile
         case cacheEncode
+        case artifactRead
+        case artifactWrite
         case reprice
         case normalizationCacheMiss
+        case vertexMetadataWalk
+        case claudeLineDecode
+        case claudeCostCalculation
         case catalogModelLookup(found: Bool)
     }
 
@@ -236,6 +217,9 @@ extension CostUsageScanner {
         var cacheEncodes = 0
         var repricedRows = 0
         var normalizationCacheMisses = 0
+        var vertexMetadataWalks = 0
+        var claudeLineDecodes = 0
+        var claudeCostCalculations = 0
         var catalogModelLookups = 0
         var catalogModelHits = 0
         var catalogModelMisses = 0
@@ -244,6 +228,7 @@ extension CostUsageScanner {
     final class ClaudeScanWorkRecorder: @unchecked Sendable {
         private let lock = NSLock()
         private var metrics = ClaudeScanWorkMetrics()
+        private var artifactIO = (reads: 0, writes: 0)
 
         func record(_ work: ClaudeScanWork) {
             self.lock.lock()
@@ -257,8 +242,13 @@ extension CostUsageScanner {
                 }
             case .reconcile: self.metrics.reconciliations += 1
             case .cacheEncode: self.metrics.cacheEncodes += 1
+            case .artifactRead: self.artifactIO.reads += 1
+            case .artifactWrite: self.artifactIO.writes += 1
             case .reprice: self.metrics.repricedRows += 1
             case .normalizationCacheMiss: self.metrics.normalizationCacheMisses += 1
+            case .vertexMetadataWalk: self.metrics.vertexMetadataWalks += 1
+            case .claudeLineDecode: self.metrics.claudeLineDecodes += 1
+            case .claudeCostCalculation: self.metrics.claudeCostCalculations += 1
             case let .catalogModelLookup(found):
                 self.metrics.catalogModelLookups += 1
                 if found {
@@ -270,9 +260,11 @@ extension CostUsageScanner {
         }
 
         func snapshot() -> ClaudeScanWorkMetrics {
-            self.lock.lock()
-            defer { self.lock.unlock() }
-            return self.metrics
+            self.lock.withLock { self.metrics }
+        }
+
+        func persistenceSnapshot() -> (reads: Int, writes: Int) {
+            self.lock.withLock { self.artifactIO }
         }
     }
 
@@ -308,15 +300,22 @@ extension CostUsageScanner {
 
     static func evictPersistedClaudeReportMemoForTesting(provider: UsageProvider, cacheRoot: URL?) {
         let cacheURL = CostUsageClaudeCacheIO.cacheFileURL(provider: provider, cacheRoot: cacheRoot)
-        let canonicalCachePath = cacheURL.standardizedFileURL.resolvingSymlinksInPath().path
-        CostUsageClaudeReportMemo.shared.evictPersisted(canonicalCachePath: canonicalCachePath)
+            .standardizedFileURL.resolvingSymlinksInPath()
+        try? FileManager.default.removeItem(at: CostUsageClaudeReportMemo.reportMemoFileURL(cacheFileURL: cacheURL))
     }
 }
 #endif
 
 struct CostUsageClaudeCache: Codable {
-    var usage = CostUsageCache()
-    var sourceFileIDs: [String: String] = [:]
+    var usage = CostUsageCache() {
+        didSet { self.contentID = UUID() }
+    }
+
+    var sourceFileIDs: [String: String] = [:] {
+        didSet { self.contentID = UUID() }
+    }
+
+    private(set) var contentID = UUID() // String equality cannot establish byte-identical JSON.
 
     private enum CodingKeys: String, CodingKey { case sourceFileIDs }
 
@@ -335,16 +334,76 @@ struct CostUsageClaudeCache: Codable {
     }
 }
 
+/// Avoid repeating long field names for every retained response.
+extension CostUsageScanner.ClaudeUsageRow {
+    enum CodingKeys: String, CodingKey {
+        case dayKey = "d"
+        case model = "m"
+        case sessionId = "s"
+        case messageId = "i"
+        case requestId = "r"
+        case timestampUnixMs = "t"
+        case isSidechain = "b"
+        case pathRole = "p"
+        case input = "in"
+        case cacheRead = "cr"
+        case cacheCreate = "cc"
+        case cacheCreate1h = "ch"
+        case output = "out"
+        case costNanos = "c"
+        case costPriced = "priced"
+        case isIncomplete = "partial"
+    }
+}
+
 /// Claude and Vertex retain their transcript cache. Codex deliberately has no route
 /// through this JSON I/O boundary; its only persistence authority is `CostUsageStore`.
 enum CostUsageClaudeCacheIO {
-    /// Reparse records written before proxy completion metadata was retained.
-    private static let schemaVersion = 3
+    /// Compact row keys; older artifacts rebuild from their source transcripts.
+    private static let schemaVersion = 4
 
-    private static func defaultCacheRoot() -> URL {
-        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return root.appendingPathComponent("CodexBar", isDirectory: true)
+    /// Decoded rows may be evicted under memory pressure; eight small persistence identities survive independently.
+    /// The scanner still validates source scope and reprices rows.
+    private final class ArtifactMemo: @unchecked Sendable {
+        final class Entry {
+            let stamp: CostUsageClaudeFileStamp
+            let cache: CostUsageClaudeCache
+
+            init(stamp: CostUsageClaudeFileStamp, cache: CostUsageClaudeCache) {
+                self.stamp = stamp
+                self.cache = cache
+            }
+        }
+
+        static let shared = ArtifactMemo()
+        let entries = NSCache<NSURL, Entry>()
+
+        private let lock = NSLock()
+        private typealias Identity = (stamp: CostUsageClaudeFileStamp, digest: SHA256.Digest, contentID: UUID?)
+        private var identities: [(url: URL, value: Identity)] = []
+
+        func identity(at url: URL) -> (stamp: CostUsageClaudeFileStamp, digest: SHA256.Digest, contentID: UUID?)? {
+            self.lock.withLock { self.identities.last(where: { $0.url == url })?.value }
+        }
+
+        func remember(at url: URL, stamp: CostUsageClaudeFileStamp, digest: SHA256.Digest, contentID: UUID?) {
+            self.lock.withLock {
+                self.identities.removeAll { $0.url == url }
+                self.identities.append((url, (stamp, digest, contentID)))
+                if self.identities.count > 8 { self.identities.removeFirst() }
+            }
+        }
+
+        private init() {
+            self.entries.countLimit = 4
+        }
     }
+
+    #if DEBUG
+    static func evictArtifactMemoForTesting(at url: URL) {
+        ArtifactMemo.shared.entries.removeObject(forKey: url.standardizedFileURL.resolvingSymlinksInPath() as NSURL)
+    }
+    #endif
 
     // Provider-specific by design: Claude/Vertex cost caching still uses the legacy JSON artifact pending its own
     // migration (see #2760).
@@ -355,7 +414,8 @@ enum CostUsageClaudeCacheIO {
         reportContext: CostUsageReportContext = .regular) -> URL
     {
         precondition(provider == .claude || provider == .vertexai)
-        let root = cacheRoot ?? self.defaultCacheRoot()
+        let root = cacheRoot ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("CodexBar", isDirectory: true)
         // Parsing filters dates before selecting duplicate responses, so independent report windows
         // need their own rows.
         let suffix = reportContext == .spendDashboard ? "-history" : ""
@@ -371,16 +431,29 @@ enum CostUsageClaudeCacheIO {
         calendar: Calendar? = nil) -> CostUsageClaudeCache
     {
         let url = self.cacheFileURL(provider: provider, cacheRoot: cacheRoot, reportContext: reportContext)
-        guard let data = try? Data(contentsOf: url) else { return CostUsageClaudeCache() }
-        #if DEBUG
-        CostUsageScanner.recordClaudeScanWork(.cacheDecode)
-        #endif
-        guard let cache = try? JSONDecoder().decode(CostUsageClaudeCache.self, from: data),
-              cache.usage.version == self.schemaVersion
-        else { return CostUsageClaudeCache() }
-        if let calendar, cache.usage.timeZoneIdentifier != calendar.timeZone.identifier {
-            return CostUsageClaudeCache()
+        let key = url.standardizedFileURL.resolvingSymlinksInPath() as NSURL
+        let stamp = CostUsageClaudeFileStamp.read(at: url)
+        let cache: CostUsageClaudeCache
+        if let stamp, let memoized = ArtifactMemo.shared.entries.object(forKey: key), memoized.stamp == stamp {
+            cache = memoized.cache
+        } else {
+            guard let data = self.read(at: url) else { return CostUsageClaudeCache() }
+            #if DEBUG
+            CostUsageScanner.recordClaudeScanWork(.cacheDecode)
+            #endif
+            guard let decoded = try? JSONDecoder().decode(CostUsageClaudeCache.self, from: data) else {
+                return CostUsageClaudeCache()
+            }
+            cache = decoded
+            // A concurrent replacement must fall through to a fresh decode next time.
+            if let stamp, CostUsageClaudeFileStamp.read(at: url) == stamp {
+                self.remember(data: data, at: url, stamp: stamp, contentID: cache.contentID)
+                ArtifactMemo.shared.entries.setObject(ArtifactMemo.Entry(stamp: stamp, cache: cache), forKey: key)
+            }
         }
+        guard cache.usage.version == self.schemaVersion,
+              calendar == nil || cache.usage.timeZoneIdentifier == calendar?.timeZone.identifier
+        else { return CostUsageClaudeCache() }
         return cache
     }
 
@@ -394,28 +467,42 @@ enum CostUsageClaudeCacheIO {
     {
         let url = self.cacheFileURL(provider: provider, cacheRoot: cacheRoot, reportContext: reportContext)
         var cache = cache
-        cache.usage.version = self.schemaVersion
-        cache.usage.timeZoneIdentifier = calendar.timeZone.identifier
-        #if DEBUG
-        CostUsageScanner.recordClaudeScanWork(.cacheEncode)
-        #endif
-        return try self.write(cache, to: url, checkCancellation: checkCancellation)
+        let timeZoneID = calendar.timeZone.identifier
+        if cache.usage.version != self.schemaVersion { cache.usage.version = self.schemaVersion }
+        if cache.usage.timeZoneIdentifier?.utf8.elementsEqual(timeZoneID.utf8) != true {
+            cache.usage.timeZoneIdentifier = timeZoneID
+        }
+        let key = url.standardizedFileURL.resolvingSymlinksInPath() as NSURL
+        let stamp = try self.write(cache, to: url, contentID: cache.contentID, checkCancellation: checkCancellation)
+        if let stamp, CostUsageClaudeFileStamp.read(at: url) == stamp {
+            ArtifactMemo.shared.entries.setObject(ArtifactMemo.Entry(stamp: stamp, cache: cache), forKey: key)
+        }
+        return stamp
     }
 
     fileprivate static func write(
         _ value: some Encodable,
         to url: URL,
+        contentID: UUID? = nil,
         checkCancellation: CostUsageScanner.CancellationCheck? = nil) throws -> CostUsageClaudeFileStamp?
     {
+        let key = url.standardizedFileURL.resolvingSymlinksInPath()
+        try checkCancellation?()
+        let identity = ArtifactMemo.shared.identity(at: key)
+        if let identity, let contentID, identity.contentID == contentID,
+           CostUsageClaudeFileStamp.read(at: url) == identity.stamp { return identity.stamp }
+        #if DEBUG
+        if contentID != nil { CostUsageScanner.recordClaudeScanWork(.cacheEncode) }
+        #endif
         let encoder = JSONEncoder()
+        // Stable fingerprints preserve stamps when a rescan rebuilds byte-identical content with a new UUID.
         encoder.outputFormatting = [.sortedKeys]
         guard let data = try? encoder.encode(value) else { return nil }
         try checkCancellation?()
-        if let stamp = CostUsageClaudeFileStamp.read(at: url), stamp.size == Int64(data.count),
-           (try? Data(contentsOf: url)) == data,
-           CostUsageClaudeFileStamp.read(at: url) == stamp
-        {
-            return stamp
+        let digest = SHA256.hash(data: data)
+        if let identity, identity.digest == digest, CostUsageClaudeFileStamp.read(at: url) == identity.stamp {
+            ArtifactMemo.shared.remember(at: key, stamp: identity.stamp, digest: digest, contentID: contentID)
+            return identity.stamp
         }
         let directory = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(
@@ -429,6 +516,31 @@ enum CostUsageClaudeCacheIO {
         else {
             return nil
         }
+        ArtifactMemo.shared.remember(at: key, stamp: stamp, digest: digest, contentID: contentID)
+        #if DEBUG
+        CostUsageScanner.recordClaudeScanWork(.artifactWrite)
+        #endif
         return stamp
+    }
+
+    fileprivate static func read(at url: URL) -> Data? {
+        #if DEBUG
+        CostUsageScanner.recordClaudeScanWork(.artifactRead)
+        #endif
+        return try? Data(contentsOf: url)
+    }
+
+    fileprivate static func remember(
+        data: Data,
+        at url: URL,
+        stamp: CostUsageClaudeFileStamp?,
+        contentID: UUID? = nil)
+    {
+        guard let stamp, CostUsageClaudeFileStamp.read(at: url) == stamp else { return }
+        ArtifactMemo.shared.remember(
+            at: url.standardizedFileURL.resolvingSymlinksInPath(),
+            stamp: stamp,
+            digest: SHA256.hash(data: data),
+            contentID: contentID)
     }
 }

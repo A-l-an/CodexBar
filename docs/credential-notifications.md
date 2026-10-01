@@ -7,33 +7,14 @@ read_when:
 
 # Credential notifications
 
-Settings → Notifications → **Credential expiry** enables a notification when a provider account needs
-sign-in again. It is off by default and applies only to this Mac. macOS notification permissions still apply.
-The notification contains the provider name and a generic instruction to open CodexBar; it never includes
-an email, account ID, token, or raw provider error. Existing provider-card errors remain available.
+Settings → Notifications → **Credential expiry** alerts you when a provider account needs sign-in again. It is off by default, local to this Mac, and subject to macOS notification permissions. Alerts contain only the provider name and an instruction to open CodexBar, never emails, account IDs, tokens, or raw errors. Provider-card errors remain available.
 
-Each provider/account gets one alert per failure episode. Repeated refreshes, intervening network/quota
-failures, and cached or degraded fallback snapshots do not reset the episode. Only a successful fresh
-fetch for the same account permits a new alert. Saved token accounts and Codex/Claude account identities
-use their existing refresh ownership boundaries. Claude identity gaps use the stable credential-file fingerprint
-already captured by refresh; later account identity is bound to the same episode without an additional credential read.
-Sources without any account or credential ownership evidence share a default scope for that provider, so an identity gap does not generate a notification on every refresh. Episodes
-are in memory and start fresh when the app restarts. Turning the toggle off suppresses delivery without
-forgetting unresolved episodes.
+Each provider/account gets one alert per failure episode. Only a successful fresh fetch for that account resets it; repeated refreshes, network/quota failures, and cached or degraded fallback data do not. Episodes reset on app restart. Turning the toggle off suppresses delivery but retains unresolved episodes.
 
-The shared classifier accepts the plugin framework's typed authentication-expired and missing-credential
-errors plus native credential errors for Codex, Claude, Kimi, Doubao, Alibaba Token Plan, and Augment.
-Unknown errors fail closed. Quota/billing exhaustion, permission denial, rate limits, transport failures,
-and arbitrary messages containing “token” or “login” are not treated as expired credentials.
-Native providers should add a typed mapping or use the shared classified error when adopting this path.
+## Delivery contract
 
-Augment keepalive reports login-required events to the same app path instead of requesting notification
-permission or posting independently from the core library. Generic retry exhaustion is not an auth event.
-Delivery rechecks consent and episode validity after authorization, and withdraws a request if shutdown,
-provider disablement, recovery, or keepalive retirement races with submission. Delivered alerts are also
-removed on recovery, provider disablement, keepalive retirement, and app shutdown. Failed or denied delivery releases its reservation
-so the next refresh can retry; permission denial is rechecked without repeatedly prompting. This feature does not add
-credential reads, refreshes, login flows, or browser imports.
+Saved token accounts and Codex/Claude identities use their refresh ownership boundaries. During Claude identity gaps, the credential-file fingerprint already captured by refresh identifies the episode; a later account identity joins it without another credential read. Sources with no ownership evidence share one default scope per provider.
 
-Focused tests use injected power/notification APIs, dictionary defaults, and synthetic fetch outcomes;
-they never deliver real notifications or access credentials.
+The classifier accepts typed plugin authentication-expired/missing-credential errors and native credential errors for Codex, Claude, Kimi, Doubao, Alibaba Token Plan, and Augment. Native providers must add a typed mapping or use the shared classified error. Unknown errors, quota/billing exhaustion, permission denial, rate limits, transport failures, and messages merely containing “token” or “login” do not trigger alerts.
+
+Augment keepalive uses this same delivery path for login-required events; generic retry exhaustion is not an auth event. Delivery rechecks consent and episode validity after authorization. Recovery, provider disablement, keepalive retirement, and shutdown withdraw pending requests and remove delivered alerts. Failed or denied delivery releases its reservation for a later refresh to retry; permission denial is rechecked without repeated prompts. Notifications add no credential reads, refreshes, login flows, or browser imports.

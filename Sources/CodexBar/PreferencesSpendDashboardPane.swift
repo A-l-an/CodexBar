@@ -17,12 +17,8 @@ func spendDashboardDayRangeText(_ days: Int) -> String {
     if days >= SpendDashboardSource.scanDays {
         return L("All")
     }
-    let template: String
-    switch days {
-    case 7: template = L("7d")
-    case 30: template = L("30d")
-    case 90: template = L("90d")
-    default: return codexBarLocalizedInteger(days)
+    guard let template = [7: L("7d"), 30: L("30d"), 90: L("90d")][days] else {
+        return codexBarLocalizedInteger(days)
     }
     return template.replacingOccurrences(
         of: String(days),
@@ -231,16 +227,31 @@ struct SpendDashboardPane: View {
         self.store.sharedSpendDashboardController()
     }
 
-    private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L("Usage & Spend"))
-                    .font(.title2.weight(.semibold))
-                Text(L("Local estimated cost history across supported providers."))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+    var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("Usage & Spend"))
+                        .font(.title2.weight(.semibold))
+                        .lineLimit(1)
+                    Text(L("Local estimated cost history across supported providers."))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .layoutPriority(1)
+                Spacer(minLength: 0)
+                Button {
+                    self.store.refreshSpendDashboard(accounts: self.codexSpendScanRequests)
+                } label: {
+                    if self.controller.isRefreshing {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label(L("Refresh"), systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(self.controller.isRefreshing || !self.settings.costUsageEnabled)
             }
-            Spacer()
             Picker(L("Time range"), selection: self.periodBinding) {
                 Text(spendDashboardDayRangeText(7)).tag(CostReportingPeriod.rolling(days: 7))
                 Text(spendDashboardDayRangeText(30)).tag(CostReportingPeriod.rolling(days: 30))
@@ -253,19 +264,8 @@ struct SpendDashboardPane: View {
             }
             .labelsHidden()
             .pickerStyle(.segmented)
-            .frame(width: 360)
+            .frame(maxWidth: 480, alignment: .leading)
             .accessibilityIdentifier("spend-dashboard-range-picker")
-
-            Button {
-                self.store.refreshSpendDashboard(accounts: self.codexSpendScanRequests)
-            } label: {
-                if self.controller.isRefreshing {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Label(L("Refresh"), systemImage: "arrow.clockwise")
-                }
-            }
-            .disabled(self.controller.isRefreshing || !self.settings.costUsageEnabled)
         }
     }
 
@@ -748,7 +748,7 @@ private struct SpendDashboardDetailPanel: View {
         case .projects:
             SpendProjectRows(group: self.group, hidePersonalInfo: self.hidePersonalInfo)
         case .sessions:
-            SpendSessionRows(group: self.group)
+            SpendSessionRows(group: self.group, hidePersonalInfo: self.hidePersonalInfo)
         }
     }
 }
@@ -1284,20 +1284,31 @@ private struct SpendDailyLedgerRow: View {
 
 private struct SpendSessionRows: View {
     let group: SpendDashboardModel.CurrencyGroup
+    let hidePersonalInfo: Bool
+    @State private var showsAllRows = false
+
+    private static let collapsedRowCount = 8
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(self.group.sessions.enumerated()), id: \.element.id) { index, row in
-                let subtitle = row.modelName ?? SpendActivityDateFormatting.mediumDateString(row.lastActivity)
-                if index > 0 {
+            ForEach(self.visibleRows) { row in
+                let identity = row.displayIdentity(hidePersonalInfo: self.hidePersonalInfo)
+                let subtitle = row.displaySubtitle(
+                    hidePersonalInfo: self.hidePersonalInfo,
+                    calendar: self.group.calendar)
+                if row.rank > 1 {
                     Divider()
                 }
                 HStack(spacing: 10) {
+                    Text(spendDashboardRankText(row.rank))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 26, alignment: .leading)
                     SpendProviderIcon(provider: row.provider, sourceKind: .native)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(row.displayName)
+                        Text(identity.name)
                             .lineLimit(1)
-                            .help(row.displayName)
+                            .help(identity.name)
                         Text(subtitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1313,7 +1324,16 @@ private struct SpendSessionRows: View {
                 }
                 .padding(.vertical, 9)
             }
+            SpendPanelExpandButton(
+                rowCount: self.group.sessions.count,
+                collapsedRowCount: Self.collapsedRowCount,
+                showsAllRows: self.$showsAllRows)
         }
+    }
+
+    private var visibleRows: ArraySlice<SpendDashboardModel.SessionRow> {
+        self.group.sessions.prefix(
+            self.showsAllRows ? self.group.sessions.count : Self.collapsedRowCount)
     }
 }
 

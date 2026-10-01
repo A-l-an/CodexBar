@@ -218,67 +218,25 @@ struct UsageFormatterTests {
         #expect(!text.contains("ago"))
     }
 
-    @Test
-    func `reset countdown minutes`() {
+    @Test(arguments: [
+        ("reset countdown minutes", 10 * 60 + 1, "in 11m"),
+        ("reset countdown hours and minutes", 3 * 3600 + 31 * 60, "in 3h 31m"),
+        ("reset countdown caps days with hours at two units", (26 * 3600) + (1 * 60), "in 1d 2h"),
+        ("reset countdown days and exact hours", 26 * 3600, "in 1d 2h"),
+        ("reset countdown days and minutes without whole hours", (24 * 3600) + (5 * 60), "in 1d 5m"),
+        ("reset countdown exact days", 2 * 24 * 3600, "in 2d"),
+        ("reset countdown rounds the last minute into a day", (24 * 3600) - 59, "in 1d"),
+        ("reset countdown exact hour", 60 * 60, "in 1h"),
+        ("reset countdown past date", -10, "now"),
+    ] as [(String, TimeInterval, String)])
+    func `reset countdown rounds and limits displayed units`(
+        scenario: String,
+        interval: TimeInterval,
+        expected: String)
+    {
         let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval(10 * 60 + 1)
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 11m")
-    }
-
-    @Test
-    func `reset countdown hours and minutes`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval(3 * 3600 + 31 * 60)
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 3h 31m")
-    }
-
-    @Test
-    func `reset countdown caps days with hours at two units`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval((26 * 3600) + (1 * 60))
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 1d 2h")
-    }
-
-    @Test
-    func `reset countdown days and exact hours`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval(26 * 3600)
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 1d 2h")
-    }
-
-    @Test
-    func `reset countdown days and minutes without whole hours`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval((24 * 3600) + (5 * 60))
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 1d 5m")
-    }
-
-    @Test
-    func `reset countdown exact days`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval(2 * 24 * 3600)
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 2d")
-    }
-
-    @Test
-    func `reset countdown rounds the last minute into a day`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval((24 * 3600) - 59)
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 1d")
-    }
-
-    @Test
-    func `reset countdown exact hour`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval(60 * 60)
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "in 1h")
-    }
-
-    @Test
-    func `reset countdown past date`() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        let reset = now.addingTimeInterval(-10)
-        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == "now")
+        let reset = now.addingTimeInterval(interval)
+        #expect(UsageFormatter.resetCountdownDescription(from: reset, now: now) == expected, "\(scenario)")
     }
 
     @Test
@@ -436,44 +394,19 @@ struct UsageFormatterTests {
 
     // MARK: - Currency Formatting
 
-    @Test
-    func `currency string formats USD correctly`() {
-        // Should produce "$54.72" without space after symbol
-        let result = UsageFormatter.currencyString(54.72, currencyCode: "USD")
-        #expect(result == "$54.72")
-        #expect(!result.contains("$ ")) // No space after symbol
-    }
-
-    @Test
-    func `currency string formats NZD with a distinct dollar symbol`() {
-        #expect(UsageFormatter.currencyString(54.72, currencyCode: "NZD") == "NZ$54.72")
-    }
-
-    @Test
-    func `currency string handles large values`() {
-        let result = UsageFormatter.currencyString(1234.56, currencyCode: "USD")
-        // For USD, we use direct string formatting with thousand separators
-        #expect(result == "$1,234.56")
-        #expect(!result.contains("$ ")) // No space after symbol
-    }
-
-    @Test
-    func `currency string handles very large values`() {
-        let result = UsageFormatter.currencyString(1_234_567.89, currencyCode: "USD")
-        #expect(result == "$1,234,567.89")
-    }
-
-    @Test
-    func `currency string handles negative values`() {
-        // Negative sign should come before the dollar sign: -$54.72 (not $-54.72)
-        let result = UsageFormatter.currencyString(-54.72, currencyCode: "USD")
-        #expect(result == "-$54.72")
-    }
-
-    @Test
-    func `currency string handles negative large values`() {
-        let result = UsageFormatter.currencyString(-1234.56, currencyCode: "USD")
-        #expect(result == "-$1,234.56")
+    @Test(arguments: [
+        (54.72, "USD", "$54.72"),
+        (54.72, "NZD", "NZ$54.72"),
+        (1234.56, "USD", "$1,234.56"),
+        (1_234_567.89, "USD", "$1,234,567.89"),
+        (-54.72, "USD", "-$54.72"),
+        (-1234.56, "USD", "-$1,234.56"),
+        (0, "USD", "$0.00"),
+    ])
+    func `currency string preserves sign grouping and symbol`(value: Double, currency: String, expected: String) {
+        let result = UsageFormatter.currencyString(value, currencyCode: currency)
+        #expect(result == expected)
+        #expect(!result.contains("$ "))
     }
 
     @Test
@@ -482,12 +415,6 @@ struct UsageFormatterTests {
         #expect(UsageFormatter.usdString(54.72) == UsageFormatter.currencyString(54.72, currencyCode: "USD"))
         #expect(UsageFormatter.usdString(-1234.56) == UsageFormatter.currencyString(-1234.56, currencyCode: "USD"))
         #expect(UsageFormatter.usdString(0) == UsageFormatter.currencyString(0, currencyCode: "USD"))
-    }
-
-    @Test
-    func `currency string handles zero`() {
-        let result = UsageFormatter.currencyString(0, currencyCode: "USD")
-        #expect(result == "$0.00")
     }
 
     @Test(arguments: [

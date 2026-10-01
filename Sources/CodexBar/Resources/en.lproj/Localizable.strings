@@ -579,7 +579,7 @@
 "menu_bar_metric_subtitle" = "Choose which window drives the menu bar percent.";
 "menu_bar_metric_subtitle_deepseek" = "Shows the DeepSeek balance in the menu bar.";
 "menu_bar_metric_subtitle_moonshot" = "Shows the Moonshot / Kimi API balance in the menu bar.";
-"menu_bar_metric_subtitle_mistral" = "Choose Mistral API spend or Monthly Plan usage for the menu bar.";
+"menu_bar_metric_subtitle_mistral" = "Choose Mistral API spend or Monthly Plan usage for the menu bar and widgets.";
 "automatic" = "Automatic";
 "primary_api_key_limit" = "Primary (API key limit)";
 
@@ -950,6 +950,12 @@
 "Copied" = "Copied";
 "Managed by Homebrew" = "Managed by Homebrew";
 "Copy update command" = "Copy update command";
+"Update to %@" = "Update to %@";
+"CodexBar %@ is available" = "CodexBar %@ is available";
+"CodexBar is up to date" = "CodexBar is up to date";
+"Checking for updates…" = "Checking for updates…";
+"Updating with Homebrew…" = "Updating with Homebrew…";
+"Homebrew update failed. You can run this command in Terminal instead:" = "Homebrew update failed. You can run this command in Terminal instead:";
 "Copy error" = "Copy error";
 "Copy path" = "Copy path";
 "Extra usage spent" = "Extra usage spent";
@@ -1654,3 +1660,5 @@
 
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary.";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary.";
+
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Daily charts unavailable. Update the remote CodexBar CLI to enable them.";

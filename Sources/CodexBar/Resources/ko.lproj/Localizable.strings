@@ -929,6 +929,12 @@
 "Copied" = "복사됨";
 "Managed by Homebrew" = "Homebrew로 관리됨";
 "Copy update command" = "업데이트 명령 복사";
+"Update to %@" = "%@(으)로 업데이트";
+"CodexBar %@ is available" = "CodexBar %@ 사용 가능";
+"CodexBar is up to date" = "CodexBar가 최신 버전입니다";
+"Checking for updates…" = "업데이트 확인 중…";
+"Updating with Homebrew…" = "Homebrew로 업데이트 중…";
+"Homebrew update failed. You can run this command in Terminal instead:" = "Homebrew 업데이트에 실패했습니다. 대신 터미널에서 이 명령을 실행할 수 있습니다:";
 "Copy error" = "오류 복사";
 "Copy path" = "경로 복사";
 "Extra usage spent" = "추가 사용 지출액";
@@ -1619,3 +1625,5 @@
 
 "Uses native Codex history. The SSH host needs a CodexBar CLI supporting --daily-summary." = "Codex 기본 기록을 사용합니다. SSH 호스트에 --daily-summary를 지원하는 CodexBar CLI가 필요합니다.";
 "Could not read daily costs. Check SSH and update the remote CodexBar CLI to support --daily-summary." = "일별 비용을 읽을 수 없습니다. SSH를 확인하고 원격 CodexBar CLI를 --daily-summary 지원 버전으로 업데이트하세요.";
+
+"Daily charts unavailable. Update the remote CodexBar CLI to enable them." = "Daily charts unavailable. Update the remote CodexBar CLI to enable them.";

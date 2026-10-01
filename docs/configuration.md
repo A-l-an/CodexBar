@@ -10,9 +10,8 @@ read_when:
 
 The app's **Help → CodexBar Help** command opens the [README](https://github.com/steipete/CodexBar/blob/main/README.md), including setup instructions and links to provider documentation.
 
-CodexBar reads a single JSON config file for CLI and app provider settings.
-The running app observes external in-place edits and atomic replacements, including rapid replacements and restoring older contents. Successful app writes update the observed baseline without being reported as external edits.
-API keys, manual cookie headers, source selection, ordering, and token accounts live here. Keychain is still used for runtime cookie caches, browser Safe Storage access, and provider OAuth/device-flow credentials where those flows require it.
+The app and CLI share one JSON file for API keys, manual cookie headers, source selection, provider ordering, and token accounts. The running app detects external edits, atomic replacements, and restored older contents, including during watcher startup and change callbacks. App writes update the baseline without being treated as external edits.
+Keychain holds runtime cookie caches, browser Safe Storage access, and provider OAuth/device-flow credentials where required.
 
 ## Location
 - `CODEXBAR_CONFIG=/path/to/config.json` when set.
@@ -22,6 +21,13 @@ API keys, manual cookie headers, source selection, ordering, and token accounts 
 - `~/.codexbar/config.json` for existing legacy installs when no XDG config exists.
 - The directory is created if missing.
 - Writes on macOS and Linux create a `0600` file inside a private `0700` staging directory beside the destination before writing any bytes, then sync and atomically replace the destination. Failed writes preserve the previous file and remove staging.
+- Current app and CLI writers coordinate through a persistent, empty `config.json.lock` beside the config. CLI token refresh compares the saved credential and publishes its replacement under this lock, skipping the update if another writer holds it. Older versions and external editors do not participate in this advisory lock.
+
+A missing, zero-byte, or JSON-whitespace-only file (spaces, tabs, carriage returns, and line feeds) means no
+configuration. Reads use defaults without creating or rewriting the file; the next settings save writes valid JSON.
+If the running app sees a blank file, it retains its in-memory settings just as it does when the file is removed.
+Non-empty malformed JSON still reports a decode error in the CLI, blocks usage and config edits, and is not
+replaced by `loadOrCreateDefault()`.
 
 ## Root shape
 ```json
@@ -183,80 +189,27 @@ codexbar config validate
 Replace the placeholder with your own cookie before fetching usage with `codexbar usage --provider claude`.
 For another provider, use its registered [ID](provider-ids.md) and the cookie format in its [setup guide](providers.md).
 
-CLI shortcuts:
+## CLI configuration
 
 ```bash
 codexbar config providers
 codexbar config enable --provider grok
 codexbar config disable --provider cursor
 printf '%s' "$ELEVENLABS_API_KEY" | codexbar config set-api-key --provider elevenlabs --stdin
-printf '%s' "$OPENAI_ADMIN_KEY" | codexbar config set-api-key --provider openai --stdin
-printf '%s' "$GROQ_API_KEY" | codexbar config set-api-key --provider groq --stdin
-printf '%s' "$LLM_PROXY_API_KEY" | codexbar config set-api-key --provider llmproxy --stdin
-printf '%s' "$LITELLM_API_KEY" | codexbar config set-api-key --provider litellm --stdin
-printf '%s' "$CLAWROUTER_API_KEY" | codexbar config set-api-key --provider clawrouter --stdin
-printf '%s' "$SUB2API_API_KEY" | codexbar config set-api-key --provider sub2api --stdin
-printf '%s' "$AIAND_API_KEY" | codexbar config set-api-key --provider aiand --stdin
-printf '%s' "$XAI_MANAGEMENT_API_KEY" | codexbar config set-api-key --provider xai --stdin
 ```
 
-OpenAI API project scoping uses `workspaceID` in config. This maps to `OPENAI_PROJECT_ID` for Admin API usage and is
-only applied to the configured OpenAI key, not to selected OpenAI token accounts:
+Use the same `set-api-key --provider <id> --stdin` command with these provider/key pairs:
 
-```json
-{
-  "id": "openai",
-  "enabled": true,
-  "apiKey": "<OPENAI_ADMIN_KEY>",
-  "workspaceID": "proj_..."
-}
-```
-
-LLM Proxy also needs a base URL. Set `enterpriseHost` in config or `LLM_PROXY_BASE_URL` in the process environment:
-
-```json
-{
-  "id": "llmproxy",
-  "enabled": true,
-  "apiKey": "<REDACTED>",
-  "enterpriseHost": "https://proxy.example.com"
-}
-```
-
-LiteLLM also needs a base URL. Set `enterpriseHost` in config or `LITELLM_BASE_URL` in the process environment:
-
-```json
-{
-  "id": "litellm",
-  "enabled": true,
-  "apiKey": "<REDACTED>",
-  "enterpriseHost": "https://litellm.example.com"
-}
-```
-
-ClawRouter defaults to the hosted service. To use another deployment, set `enterpriseHost` in config or
-`CLAWROUTER_BASE_URL` in the process environment:
-
-```json
-{
-  "id": "clawrouter",
-  "enabled": true,
-  "apiKey": "<REDACTED>",
-  "enterpriseHost": "https://router.example.com"
-}
-```
-
-sub2api needs its self-hosted base URL. Set `enterpriseHost` in config or `SUB2API_BASE_URL` in the process
-environment. Add labeled token accounts in Settings when one deployment has multiple group API keys:
-
-```json
-{
-  "id": "sub2api",
-  "enabled": true,
-  "apiKey": "<REDACTED>",
-  "enterpriseHost": "https://sub2api.example.com"
-}
-```
+| Provider ID | Key environment variable | Additional configuration |
+| --- | --- | --- |
+| `openai` | `OPENAI_ADMIN_KEY` | `workspaceID` maps to `OPENAI_PROJECT_ID` for Admin API usage; applies to the configured key, not selected token accounts. |
+| `groq` | `GROQ_API_KEY` | See [Groq](groq.md). |
+| `llmproxy` | `LLM_PROXY_API_KEY` | Required base URL: `enterpriseHost` or `LLM_PROXY_BASE_URL`. |
+| `litellm` | `LITELLM_API_KEY` | Required base URL: `enterpriseHost` or `LITELLM_BASE_URL`. |
+| `clawrouter` | `CLAWROUTER_API_KEY` | Defaults to the hosted service; override with `enterpriseHost` or `CLAWROUTER_BASE_URL`. |
+| `sub2api` | `SUB2API_API_KEY` | Required self-hosted base URL: `enterpriseHost` or `SUB2API_BASE_URL`. Use labeled token accounts for multiple group keys. |
+| `aiand` | `AIAND_API_KEY` | See [ai&](aiand.md). |
+| `xai` | `XAI_MANAGEMENT_API_KEY` | See [xAI](xai.md). |
 
 See [CLI configuration](cli-configuration.md) for scripting examples and output formats.
 
@@ -298,12 +251,11 @@ Opt-in (Settings → iCloud Sync, off by default; requires a signed release buil
 - **A curated preferences subset** — notification/threshold/display settings.
 - **Usage snapshots** — per-device current usage per account, so other Macs can show last-known data ("via <Mac> · 1h ago") and accounts discovered on other Macs.
 
-The **Macs** list offers **Remove** for other devices, including stale duplicates left after a reinstall. Removal deletes that device record and its cached usage snapshots from iCloud; it leaves shared settings, credentials, and this Mac intact. Sync must be enabled and available. Failed removals remain visible and report a sync error. A Mac still running CodexBar with sync enabled can publish its records again.
+The **Macs** list offers **Remove** for other devices, including stale duplicates left after a reinstall. Removal deletes that device record and its cached usage snapshots from iCloud; it leaves shared settings, credentials, and this Mac intact. Sync must be enabled and available. Failed removals remain visible and report a sync error. A Mac still running CodexBar with sync enabled can publish its records again: if a save finds that its previous record was deleted, it drops the stale server version and retries with a fresh record. If that fresh record is also reported missing, CodexBar surfaces the error instead of retrying indefinitely.
+
+Automatic reception of changes requires a release signed with the macOS Push Notifications entitlement. When that capability is present, enabling sync registers for silent remote notifications; CKSyncEngine manages the CloudKit database subscription. The existing launch, foreground, and 15-minute fetch requests remain, but are not a guarantee of prompt delivery without push support. See [release setup](RELEASING.md#icloud-sync-cloudkit).
 
 Never synced, by design: `hooks` (sync payloads structurally cannot create or modify hook rules — they execute local binaries), machine-local paths (`claudeSwapExecutablePath`, `codexProfileHomePaths`, `awsProfile`/`awsAuthMode`, `source`, `codexActiveSource`, `cookieSource`), menu-bar layout/geometry, debug settings, usage history, and cost ledgers. A provider is never auto-enabled on a Mac where its required local CLI is missing. Records carry a schema version; older app versions pause sync instead of rewriting newer payloads. The CLI does not talk to CloudKit — the running app watches `config.json`, applies CLI or hand edits locally, and syncs changed provider payloads to the fleet when iCloud sync is enabled. Remote changes written to the file are recognized as app writes and are not echoed back. The app tracks per-provider dirty state and never re-uploads unchanged state at launch.
-
-Atomic replacements by CLI tools or editors remain observable during watcher startup and change callbacks, and
-subsequent in-place edits continue to be detected. App-originated writes retain their self-write suppression.
 
 ## Notes
 - Fields not relevant to a provider are ignored.
@@ -363,6 +315,12 @@ Credentials, accounts, hooks, launch at login, global hotkeys, local paths, devi
 debug settings, and consent are excluded. Import does not enable activity-scan consent. Only the existing
 iCloud projection syncs onward; the additional menu settings and switcher shortcuts stay local unless
 explicitly exported and imported. Import does not modify `config.json` or iCloud's remote-update suppression.
+
+### Menu bar controls
+
+In **Settings → Menu Bar**, inactive combined-icon controls use dimmed labels. Their titles and explanations remain readable and available to VoiceOver; label styling follows each control's enabled state, including stacked-icon restrictions. The layout size and gap controls remain independent of Merge Icons.
+
+The open menu's persistent **Refresh** row uses a text label aligned with the other actions, without a decorative icon. Click the row, press **⌘R**, or use its VoiceOver button action to refresh.
 
 ### Provider switcher shortcuts
 

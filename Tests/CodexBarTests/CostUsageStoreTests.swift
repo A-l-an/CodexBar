@@ -1023,6 +1023,7 @@ extension CostUsageStoreTests {
 
 extension CostUsageStoreTests {
     @Test(arguments: [
+        "98de5f52231e524e", // Released in 0.68.0.
         "9972dad7f7aeff21", // Before direct-fork baseline corrections.
         "03e43d1217789d16",
         "4dd9e5769818370a", // Before Linux Priority trace support.
@@ -1063,6 +1064,7 @@ extension CostUsageStoreTests {
         let fixture = try StoreFixture()
         defer { fixture.remove() }
         #expect(CostUsageStore.compatiblePredecessorParserHashes == [
+            "98de5f52231e524e",
             "9972dad7f7aeff21",
             "4dd9e5769818370a",
             "03e43d1217789d16",
